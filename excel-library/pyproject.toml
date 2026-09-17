@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xllib"
+version = "0.1.0"
+description = "Audit-oriented inspection and linting for Excel workbooks"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+dependencies = [
+  "openpyxl>=3.1.5,<4",
+  "formulas>=1.3.4,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.18",
+  "openpyxl-stubs>=0.1.25",
+  "pytest>=9.0",
+  "ruff>=0.13",
+]
+windows = ["pywin32>=311; platform_system == 'Windows'"]
+
+[project.scripts]
+xllib = "xllib.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xllib"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/xllib/py.typed" = "xllib/py.typed"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["xllib"]
+mypy_path = "src"
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+  "formulas.*",
+  "openpyxl.formula.tokenizer",
+  "openpyxl.utils.datetime",
+  "win32com.*",
+  "pythoncom",
+  "uno",
+]
+ignore_missing_imports = true

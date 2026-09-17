@@ -1,0 +1,63 @@
+{
+  "policies": [
+    {
+      "id": "client_isolation",
+      "description": "Block any route that leaves the active workspace namespace.",
+      "actions": ["*"],
+      "client_isolation": true,
+      "requires_approval": false
+    },
+    {
+      "id": "write_authorization",
+      "description": "Shared client artifacts require explicit write permission and supervised approval.",
+      "actions": ["write_files", "execute"],
+      "when": {"permission": "write_files"},
+      "write_authorization": true,
+      "requires_approval": true,
+      "reason": "Shared artifact write requires supervised approval"
+    },
+    {
+      "id": "external_write",
+      "description": "External system writes are never unattended.",
+      "actions": ["external_write"],
+      "external_write": true,
+      "requires_approval": true,
+      "reason": "External write blocked pending approval"
+    },
+    {
+      "id": "stale_source",
+      "description": "Stop when canonical sources are stale or missing.",
+      "actions": ["execute", "write_files"],
+      "when": {"metadata_flag": "stale_source"},
+      "requires_approval": true,
+      "reason": "Stale or missing canonical source"
+    },
+    {
+      "id": "number_change_lineage",
+      "description": "Number changes must preserve old -> new lineage and stop for review.",
+      "actions": ["decision_log_write"],
+      "requires_approval": true,
+      "reason": "Number change requires supervised review"
+    },
+    {
+      "id": "model_selection",
+      "description": "Coordinator must reapply model and runtime config on every resume and rotation.",
+      "actions": ["create_agent", "resume_agent", "rotate"],
+      "requires_approval": false
+    },
+    {
+      "id": "subagent_restrictions",
+      "description": "Subagents may extract or review but cannot schedule or recurse.",
+      "actions": ["delegate_subagent"],
+      "requires_approval": true,
+      "reason": "Subagent delegation requires coordinator approval"
+    },
+    {
+      "id": "reuse_gate",
+      "description": "Prefer proven existing components over net-new builds only after provenance, license, PwC approval, privacy, security, client-isolation, accessibility, and runtime-dependency checks pass.",
+      "actions": ["adopt_dependency", "adopt_external_design", "adopt_external_component"],
+      "requires_approval": true,
+      "reason": "Third-party reuse requires documented compliance and security review"
+    }
+  ]
+}

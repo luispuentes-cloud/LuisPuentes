@@ -1,0 +1,46 @@
+{
+  "id": "session_lifecycle",
+  "version": "1.0.0",
+  "objective": "Intake workspace session, assemble context envelope, execute bounded work, checkpoint, and rotate or retire the lane agent.",
+  "kpi": ["rotation_success", "recovery_success", "approval_latency"],
+  "work_graph": [
+    {"id": "intake", "depends_on": []},
+    {"id": "identify_lane", "depends_on": ["intake"]},
+    {"id": "assemble_context", "depends_on": ["identify_lane"]},
+    {"id": "create_or_resume", "depends_on": ["assemble_context"]},
+    {"id": "execute", "depends_on": ["create_or_resume"]},
+    {"id": "checkpoint", "depends_on": ["execute"]},
+    {"id": "rotate_or_retire", "depends_on": ["checkpoint"]}
+  ],
+  "dependencies": {
+    "canonical_sources": ["PROJECT_CONTEXT.md"],
+    "lane_registry": true
+  },
+  "decision_rights": {
+    "supervised_writes": true,
+    "lane_rotation": "coordinator"
+  },
+  "controls": {
+    "read": true,
+    "write_files": false,
+    "external_write": false,
+    "cross_lane_merge": false,
+    "destructive": false,
+    "allowed_actions": ["read", "summarize", "validate", "checkpoint"]
+  },
+  "integrations": {
+    "cursor_sdk": "local",
+    "sqlite_state": true
+  },
+  "evidence": {
+    "canonical_sources": ["PROJECT_CONTEXT.md"],
+    "latest_decisions": [],
+    "handover_markdown": true
+  },
+  "failure_scenarios": [
+    {"id": "startup_failure", "response": "mark startup failure, do not retry unless retryable"},
+    {"id": "run_failure", "response": "mark run failure, preserve agent lineage"},
+    {"id": "stale_context", "response": "rotate lane with fresh envelope"}
+  ],
+  "policy_ids": ["client_isolation", "write_authorization", "model_selection"]
+}

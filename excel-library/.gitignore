@@ -1,0 +1,21 @@
+# Bytecode and packaging
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Generated workbooks — fixtures are built at test time, never committed
+*.xlsx
+*.xlsm
+*.xls

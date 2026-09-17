@@ -1,0 +1,20 @@
+[budgets]
+sheets_per_workbook = 10
+sections_per_sheet = 5
+distinct_formula_shapes = 40
+formula_depth = 4
+function_calls_per_cell = 2
+live_drivers = 6
+
+[rules.XL002]
+allowed_literals = [0, 1, -1, 12, 100]
+
+[rules.XL002.positional_exemptions]
+ROUND = [2]
+VLOOKUP = [3, 4]
+HLOOKUP = [3, 4]
+INDEX = [2, 3]
+OFFSET = [2, 3, 4, 5]
+
+[waivers]
+entries = []

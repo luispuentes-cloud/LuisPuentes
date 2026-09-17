@@ -1,0 +1,43 @@
+{
+  "id": "meeting_to_action",
+  "version": "1.0.0",
+  "objective": "Process a meeting transcript into a brief, decision log updates, and downstream routing without cross-workspace leakage.",
+  "kpi": ["extraction_accuracy", "decision_log_freshness", "routing_latency"],
+  "work_graph": [
+    {"id": "ingest_transcript", "depends_on": []},
+    {"id": "extract_directives", "depends_on": ["ingest_transcript"]},
+    {"id": "draft_brief", "depends_on": ["extract_directives"]},
+    {"id": "propose_decision_log", "depends_on": ["draft_brief"]},
+    {"id": "route_downstream", "depends_on": ["propose_decision_log"]}
+  ],
+  "dependencies": {
+    "transcript_source": "required",
+    "decision_log": "workspace_local"
+  },
+  "decision_rights": {
+    "decision_log_mutation": "supervised",
+    "external_send": "supervised"
+  },
+  "controls": {
+    "read": true,
+    "write_files": false,
+    "external_write": false,
+    "cross_lane_merge": false,
+    "destructive": false,
+    "allowed_actions": ["read", "extract", "summarize", "validate", "draft"]
+  },
+  "integrations": {
+    "transcript_parser": "deck-ops",
+    "decision_log": "meeting-to-action"
+  },
+  "evidence": {
+    "canonical_sources": [],
+    "latest_decisions": [],
+    "transcript_pointer": "required"
+  },
+  "failure_scenarios": [
+    {"id": "stale_source", "response": "flag and stop at approval gate"},
+    {"id": "number_conflict", "response": "record old -> new and require review"}
+  ],
+  "policy_ids": ["client_isolation", "stale_source", "number_change_lineage", "write_authorization"]
+}

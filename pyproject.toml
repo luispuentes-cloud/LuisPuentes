@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cursor-orchestrator"
+version = "0.1.0"
+description = "Local supervised agent orchestrator for Cursor SDK lanes"
+requires-python = ">=3.12"
+dependencies = [
+    "cursor-sdk>=1.0.30",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+
+[project.scripts]
+orchestrator = "orchestrator.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["orchestrator*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
