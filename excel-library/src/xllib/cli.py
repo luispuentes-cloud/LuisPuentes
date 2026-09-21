@@ -15,7 +15,7 @@ from xllib.inspect import (
     load_workbook,
     walk_formula,
 )
-from xllib.lint import lint, load_config
+from xllib.lint import discover_config, lint, load_config
 from xllib.lint.registry import registered_rules
 from xllib.recalc import RecalcFailed, recalculate
 
@@ -62,10 +62,7 @@ def _run_lint(args: argparse.Namespace) -> int:
         workbook = load_workbook(args.path)
         print(json.dumps(_measure(workbook), indent=2))
         return 0
-    config_path = args.config
-    if config_path is None:
-        candidate = Path("xllib.toml")
-        config_path = candidate if candidate.exists() else None
+    config_path = args.config if args.config is not None else discover_config()
     config = load_config(config_path)
     try:
         with recalculate(args.path) as result:

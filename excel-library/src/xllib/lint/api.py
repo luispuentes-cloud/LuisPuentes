@@ -26,6 +26,7 @@ def lint(workbook: Any, config: Config, rules: tuple[Rule, ...]) -> Report:
     )
     findings: list[Finding] = []
     active = tuple(rule for rule in rules if not config.is_off(rule.id))
+    disabled = tuple(rule.id for rule in rules if config.is_off(rule.id))
     for rule in active:
         missing = sorted(capability.value for capability in rule.requires - capabilities)
         severity = config.severity_for(rule.id, rule.default_severity)
@@ -65,7 +66,11 @@ def lint(workbook: Any, config: Config, rules: tuple[Rule, ...]) -> Report:
     }
     return Report(
         target=target,
-        config={"sources": list(config.sources), "thresholds": config.thresholds},
+        config={
+            "sources": list(config.sources),
+            "thresholds": config.thresholds,
+            "disabled_rules": list(disabled),
+        },
         rule_ids=tuple(rule.id for rule in active),
         findings=tuple(sorted(findings, key=_sort_key)),
     )

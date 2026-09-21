@@ -7,7 +7,7 @@ import pytest
 
 from xllib.inspect import Capability
 from xllib.lint.api import lint
-from xllib.lint.config import Config, load_config
+from xllib.lint.config import Config, discover_config, load_config
 from xllib.lint.rule import (
     Confidence,
     Finding,
@@ -104,6 +104,47 @@ severity = "warn"
         load_config(path)
 
 
+def test_warn_rule_cannot_be_switched_off_without_a_waiver(tmp_path: Path) -> None:
+    """GOAL rules 5, 6 and 7 are covered only by WARN rules; silencing them is
+    the cheapest route around the linter and needs a named approver too."""
+    path = tmp_path / "xllib.toml"
+    path.write_text(
+        """
+[rules.XL101]
+severity = "off"
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="requires a waiver"):
+        load_config(path)
+
+
+def test_disabled_rule_is_named_in_the_report() -> None:
+    config = Config(rules={"XL999": {"severity": "off"}})
+    report = lint(StubWorkbook(), config, (_rule(),))
+    assert report.rule_ids == ()
+    assert report.as_dict()["config"]["disabled_rules"] == ["XL999"]
+    assert "disabled by config: XL999" in report.to_text()
+
+
+def test_text_report_states_which_config_was_in_force() -> None:
+    report = lint(StubWorkbook(), Config(), (_rule(),))
+    assert "config: builtin" in report.to_text()
+
+
+def test_config_discovery_walks_up_from_a_subdirectory(tmp_path: Path) -> None:
+    (tmp_path / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 3\n", encoding="utf-8")
+    nested = tmp_path / "models" / "fy26"
+    nested.mkdir(parents=True)
+    found = discover_config(nested)
+    assert found == (tmp_path / "xllib.toml").resolve()
+    assert load_config(found).thresholds["sheets_per_workbook"] == 3
+
+
+def test_config_discovery_returns_none_when_there_is_no_project(tmp_path: Path) -> None:
+    assert discover_config(tmp_path) is None
+
+
 def test_waived_error_may_be_turned_off(tmp_path: Path) -> None:
     path = tmp_path / "xllib.toml"
     path.write_text(
@@ -124,4 +165,3 @@ expires = "2099-01-01"
     assert config.is_off("XL002")
     report = lint(StubWorkbook(), config, (_rule(),))
     assert report.rule_ids == ("XL999",)
-

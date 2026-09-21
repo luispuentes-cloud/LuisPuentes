@@ -100,5 +100,11 @@ class Report:
         )
         if self.skipped:
             lines.append(f"{self.skipped} rules skipped")
+        # Which config was in force decides which findings appear at all, so a
+        # report that does not say is not reproducible from its own output.
+        disabled = self.config.get("disabled_rules") or []
+        if disabled:
+            lines.append(f"disabled by config: {', '.join(disabled)}")
+        lines.append(f"config: {', '.join(str(item) for item in self.config.get('sources', ()))}")
         lines.append(f"exit {self.exit_code}")
         return "\n".join(lines)
