@@ -181,15 +181,27 @@ def _numeric_format(number_format: str) -> bool:
 def _xl004(workbook: Workbook, _: RuleContext) -> Iterable[Finding]:
     for sheet in workbook.sheets:
         for cell in sheet.cells:
-            if isinstance(cell.effective_value, str) and _numeric_format(cell.number_format):
-                yield _violation(
-                    "XL004",
-                    Confidence.CERTAIN,
-                    "text value in a numeric-formatted cell",
-                    _locus(workbook, sheet.name, cell.coordinate),
-                    "move status text to a status column and keep the numeric cell numeric",
-                    {"value": cell.effective_value, "number_format": cell.number_format},
-                )
+            if not isinstance(cell.effective_value, str):
+                continue
+            if not _numeric_format(cell.number_format):
+                continue
+            error = cell.is_error
+            yield _violation(
+                "XL004",
+                Confidence.CERTAIN,
+                f"cached error {cell.effective_value} in a numeric-formatted cell"
+                if error
+                else "text value in a numeric-formatted cell",
+                _locus(workbook, sheet.name, cell.coordinate),
+                "repair the formula, or handle the error case so the cell holds a number"
+                if error
+                else "move status text to a status column and keep the numeric cell numeric",
+                {
+                    "value": cell.effective_value,
+                    "number_format": cell.number_format,
+                    "kind": "error" if error else "text",
+                },
+            )
 
 
 def _xl005(workbook: Workbook, _: RuleContext) -> Iterable[Finding]:
@@ -209,13 +221,22 @@ def _xl005(workbook: Workbook, _: RuleContext) -> Iterable[Finding]:
                 if cell is None or not isinstance(cell.effective_value, str):
                     continue
                 source = f"{aggregate.source_sheet}!{aggregate.source_coordinate}"
+                error = cell.is_error
                 yield _violation(
                     "XL005",
                     Confidence.CERTAIN,
-                    f"text value inside range aggregated by {source}",
+                    f"cached error {cell.effective_value} inside range aggregated by {source}"
+                    if error
+                    else f"text value inside range aggregated by {source}",
                     _locus(workbook, sheet.name, cell.coordinate),
-                    "remove text from the aggregate range or use a separate status column",
-                    {"aggregate": source, "function": aggregate.function},
+                    "repair the formula that errors; the aggregate cannot evaluate around it"
+                    if error
+                    else "remove text from the aggregate range or use a separate status column",
+                    {
+                        "aggregate": source,
+                        "function": aggregate.function,
+                        "kind": "error" if error else "text",
+                    },
                 )
 
 

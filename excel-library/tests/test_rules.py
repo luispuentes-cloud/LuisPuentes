@@ -29,13 +29,17 @@ def _save(book: Workbook, path: Path) -> Path:
     return path
 
 
-def _set_cache(path: Path, sheet_number: int, coordinate: str, value: str) -> None:
+def _set_cache(
+    path: Path, sheet_number: int, coordinate: str, value: str, cell_type: str | None = None
+) -> None:
     with ZipFile(path) as archive:
         members = {name: archive.read(name) for name in archive.namelist()}
     member = f"xl/worksheets/sheet{sheet_number}.xml"
     root = ET.fromstring(members[member])
     cell = root.find(f".//{{{_NS}}}c[@r='{coordinate}']")
     assert cell is not None
+    if cell_type is not None:
+        cell.set("t", cell_type)
     cached = cell.find(f"{{{_NS}}}v")
     if cached is None:
         cached = ET.SubElement(cell, f"{{{_NS}}}v")
@@ -106,6 +110,52 @@ def test_xl005_text_in_aggregate_range(tmp_path: Path) -> None:
     report = _report(path, "XL005")
     assert [item.locus.ref for item in report.findings] == ["E11"]
     assert report.findings[0].evidence["aggregate"] == "Summary!D8"
+
+
+def test_xl004_names_a_cached_error_rather_than_text(tmp_path: Path) -> None:
+    """An error is a broken formula, not a formatting slip, and must say so."""
+    book = Workbook()
+    sheet = book.active
+    sheet["E12"] = "=1/0"
+    sheet["E12"].number_format = "$#,##0"
+    path = _save(book, tmp_path / "xl004-error.xlsx")
+    _set_cache(path, 1, "E12", "#DIV/0!", cell_type="e")
+    report = _report(path, "XL004")
+    assert [item.locus.ref for item in report.findings] == ["E12"]
+    finding = report.findings[0]
+    assert finding.evidence["kind"] == "error"
+    assert "#DIV/0!" in finding.message
+    assert "text" not in finding.message
+    assert "status column" not in finding.remediation
+
+
+def test_xl005_names_a_cached_error_rather_than_text(tmp_path: Path) -> None:
+    book = Workbook()
+    calc = book.active
+    calc.title = "Calc"
+    calc["E10"] = 1
+    calc["E11"] = "=1/0"
+    summary = book.create_sheet("Summary")
+    summary["D8"] = "=SUM(Calc!E10:E11)"
+    path = _save(book, tmp_path / "xl005-error.xlsx")
+    _set_cache(path, 1, "E11", "#DIV/0!", cell_type="e")
+    _set_cache(path, 2, "D8", "1")
+    report = _report(path, "XL005")
+    assert [item.locus.ref for item in report.findings] == ["E11"]
+    finding = report.findings[0]
+    assert finding.evidence["kind"] == "error"
+    assert "#DIV/0!" in finding.message
+    assert "text" not in finding.message
+
+
+def test_xl004_still_calls_a_plain_string_text(tmp_path: Path) -> None:
+    book = Workbook()
+    sheet = book.active
+    sheet["E12"] = "N/A - no FTE load"
+    sheet["E12"].number_format = "$#,##0"
+    report = _report(_save(book, tmp_path / "xl004-text.xlsx"), "XL004")
+    assert report.findings[0].evidence["kind"] == "text"
+    assert report.findings[0].message == "text value in a numeric-formatted cell"
 
 
 def test_xl006_inconsistent_period_axis(tmp_path: Path) -> None:

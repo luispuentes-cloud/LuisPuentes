@@ -11,6 +11,29 @@ from types import MappingProxyType
 type Scalar = str | int | float | bool | date | datetime | time | timedelta
 type CellValue = Scalar | None
 
+#: Excel stores an error as a string, so `isinstance(value, str)` is true of
+#: `#DIV/0!` as well as of "not applicable". A rule that does not separate the
+#: two calls a broken formula a formatting problem.
+ERROR_LITERALS = frozenset(
+    {
+        "#BLOCKED!",
+        "#BUSY!",
+        "#CALC!",
+        "#CONNECT!",
+        "#DIV/0!",
+        "#FIELD!",
+        "#GETTING_DATA",
+        "#N/A",
+        "#NAME?",
+        "#NULL!",
+        "#NUM!",
+        "#REF!",
+        "#SPILL!",
+        "#UNKNOWN!",
+        "#VALUE!",
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Cell:
@@ -33,6 +56,12 @@ class Cell:
     def effective_value(self) -> CellValue:
         """Return the cached result for formulas and the stored value otherwise."""
         return self.cached_value if self.formula is not None else self.value
+
+    @property
+    def is_error(self) -> bool:
+        """True when the effective value is an Excel error rather than text."""
+        value = self.effective_value
+        return isinstance(value, str) and value.strip().upper() in ERROR_LITERALS
 
     @property
     def cache_missing(self) -> bool:
