@@ -127,6 +127,54 @@ def test_disabled_rule_is_named_in_the_report() -> None:
     assert "disabled by config: XL999" in report.to_text()
 
 
+def test_a_disabled_rule_still_counts_against_the_total() -> None:
+    """Shrinking the denominator turns "nothing was checked" into a clean bill."""
+    config = Config(rules={"XL999": {"severity": "off"}})
+    summary = lint(StubWorkbook(), config, (_rule(),)).as_dict()["summary"]
+    assert summary["rules_total"] == 1
+    assert summary["rules_evaluated"] == 0
+    assert summary["rules_disabled"] == 1
+    assert "0 of 1 rules evaluated" in lint(StubWorkbook(), config, (_rule(),)).to_text()
+
+
+def test_a_disabled_rule_is_listed_rather_than_omitted() -> None:
+    config = Config(rules={"XL999": {"severity": "off"}})
+    rules = lint(StubWorkbook(), config, (_rule(),)).as_dict()["rules"]
+    assert rules == [{"id": "XL999", "status": "DISABLED", "findings": 0}]
+
+
+def test_raising_a_severity_needs_no_waiver(tmp_path: Path) -> None:
+    """The gate blocks silencing only; tightening must stay free."""
+    path = tmp_path / "xllib.toml"
+    path.write_text('[rules.XL101]\nseverity = "error"\n', encoding="utf-8")
+    assert load_config(path).severity_for("XL101", Severity.WARN) == Severity.ERROR
+
+
+def test_restating_a_warn_rule_as_warn_needs_no_waiver(tmp_path: Path) -> None:
+    path = tmp_path / "xllib.toml"
+    path.write_text('[rules.XL101]\nseverity = "warn"\n', encoding="utf-8")
+    assert load_config(path).severity_for("XL101", Severity.WARN) == Severity.WARN
+
+
+def test_waived_warn_rule_may_be_turned_off(tmp_path: Path) -> None:
+    path = tmp_path / "xllib.toml"
+    path.write_text(
+        """
+[rules.XL101]
+severity = "off"
+
+[[waivers.entries]]
+rule = "XL101"
+scope = "*"
+reason = "temporary"
+approver = "owner"
+expires = "2099-01-01"
+""",
+        encoding="utf-8",
+    )
+    assert load_config(path).is_off("XL101")
+
+
 def test_text_report_states_which_config_was_in_force() -> None:
     report = lint(StubWorkbook(), Config(), (_rule(),))
     assert "config: builtin" in report.to_text()

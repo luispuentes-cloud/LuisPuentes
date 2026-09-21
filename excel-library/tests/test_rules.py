@@ -154,8 +154,42 @@ def test_xl004_still_calls_a_plain_string_text(tmp_path: Path) -> None:
     sheet["E12"] = "N/A - no FTE load"
     sheet["E12"].number_format = "$#,##0"
     report = _report(_save(book, tmp_path / "xl004-text.xlsx"), "XL004")
-    assert report.findings[0].evidence["kind"] == "text"
+    # Behaviour before shape: asserting the evidence key first made this fail
+    # on a KeyError and never reach the message it exists to protect.
     assert report.findings[0].message == "text value in a numeric-formatted cell"
+    assert report.findings[0].evidence["kind"] == "text"
+
+
+def test_xl004_does_not_call_error_shaped_text_an_error(tmp_path: Path) -> None:
+    """Only the file's own type system may declare a cell an error."""
+    book = Workbook()
+    sheet = book.active
+    sheet["E12"] = " #n/a "
+    sheet["E12"].number_format = "$#,##0"
+    report = _report(_save(book, tmp_path / "xl004-lookalike.xlsx"), "XL004")
+    finding = report.findings[0]
+    assert finding.evidence["kind"] == "text"
+    assert "repair the formula" not in finding.remediation
+
+
+def test_xl103_fails_a_check_evaluating_to_false(tmp_path: Path) -> None:
+    """`False == 0` is true in Python; a failing boolean check must not pass."""
+    book = Workbook()
+    sheet = book.active
+    sheet["A1"] = False
+    book.defined_names.add(DefinedName("chk_bool_tie", attr_text="'Sheet'!$A$1"))
+    report = _report(_save(book, tmp_path / "xl103-false.xlsx"), "XL103")
+    assert len(report.findings) == 1
+    assert "False" in report.findings[0].message
+
+
+def test_xl103_passes_a_check_evaluating_to_true(tmp_path: Path) -> None:
+    book = Workbook()
+    sheet = book.active
+    sheet["A1"] = True
+    book.defined_names.add(DefinedName("chk_bool_tie", attr_text="'Sheet'!$A$1"))
+    report = _report(_save(book, tmp_path / "xl103-true.xlsx"), "XL103")
+    assert report.findings == ()
 
 
 def test_xl006_inconsistent_period_axis(tmp_path: Path) -> None:

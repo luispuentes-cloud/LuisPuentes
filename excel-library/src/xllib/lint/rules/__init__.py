@@ -306,7 +306,10 @@ def _xl103(workbook: Workbook, _: RuleContext) -> Iterable[Finding]:
                 continue
             cell = sheet.cell(target.min_row, target.min_column)
             value = cell.effective_value if cell else None
-            if value is True or value == 0:
+            # `False == 0` is true in Python, so a bare `value == 0` treated a
+            # failing boolean check as passing — the one case this rule exists
+            # for. Booleans are judged by identity, everything else by value.
+            if value is True or (not isinstance(value, bool) and value == 0):
                 continue
             ref = cell.coordinate if cell else target.text
             yield _violation(

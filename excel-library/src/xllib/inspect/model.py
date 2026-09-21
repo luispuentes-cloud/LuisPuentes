@@ -59,9 +59,18 @@ class Cell:
 
     @property
     def is_error(self) -> bool:
-        """True when the effective value is an Excel error rather than text."""
+        """True when the effective value is an Excel error rather than text.
+
+        The literal is matched exactly and then corroborated against the file's
+        own type system: a formula's cached result, or a static cell Excel
+        typed `e`. Normalising case and whitespace here would only ever add
+        matches the file does not claim, which is how the text " #n/a " came to
+        be reported as a broken formula.
+        """
         value = self.effective_value
-        return isinstance(value, str) and value.strip().upper() in ERROR_LITERALS
+        if not isinstance(value, str) or value not in ERROR_LITERALS:
+            return False
+        return self.formula is not None or self.data_type == "e"
 
     @property
     def cache_missing(self) -> bool:
