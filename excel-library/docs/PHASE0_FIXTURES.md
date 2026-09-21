@@ -1,10 +1,20 @@
 # Phase 0 Fixture Specification
 
-**Covers:** kickoff deliverable 7. Described, not built.
+**Covers:** kickoff deliverable 7. **Built** — the status line said "Described,
+not built" until 2026-09-21, by which point the fixtures had been in the suite
+for days and the line was denying a criterion the tests already met.
 
 Per GOAL, a lint rule without a failing fixture does not exist. This specifies one
 workbook per rule that violates exactly that rule, plus one clean workbook that
 passes all ten.
+
+Two departures from what is specified below. The per-rule test modules
+(`tests/test_rules/test_XL002.py`) landed as two files rather than ten:
+`tests/test_rules.py` builds a minimal workbook per rule and runs that rule
+alone, and `tests/test_complete_sets.py` carries the `test_no_other_rule_fires`
+obligation — one mutation of `build_clean_baseline` per rule, asserting the
+complete violation set is exactly the intended ID. The four machinery fixtures
+are in `tests/test_machinery.py`.
 
 ---
 
