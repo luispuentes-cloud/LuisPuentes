@@ -207,9 +207,17 @@ These exist because instructions about restraint don't hold:
 
 ## Open question — decide this first
 
-**Template slot-filling versus free generation.** Fix workbook shape in human-designed templates, with the spec supplying values and selecting which declared blocks appear — nothing else expressible. This is the Modano insight, and it makes bloat structurally impossible rather than merely detectable. Cost: novel model shapes need a new template, a human decision made deliberately rather than an agent decision made at 2am.
+**Template slot-filling versus free generation.** Fix workbook shape in human-designed templates, with the spec supplying values and selecting which declared blocks appear — nothing else expressible. ~~This is the Modano insight, and it~~ It makes bloat structurally impossible rather than merely detectable. Cost: novel model shapes need a new template, a human decision made deliberately rather than an agent decision made at 2am.
 
 Given models here are 10–15 tabs with recurring structure, and given the `Constraint` intake role needs templates anyway, I lean toward templates. Not settled. Decide with evidence before Phase 1.
+
+> **Corrected and partly decided, 2026-09-21.** Two errors in the paragraph above, and the question has since been split.
+>
+> **"The Modano insight" is a misattribution.** Modano is a *modularity* approach — models assembled from pre-built linked modules with integrity checks — not template slot-filling. `RESEARCH_Excel_Prior_Art.md` line 35 records it that way, and line 66 frames the live disagreement as "Modano's module-assembly ideal versus FAST's flat-transparency ideal." Read properly, the precedent supports a closed vocabulary of composable blocks, which is the option this document leaned *away* from.
+>
+> **"Structurally impossible" is too strong.** Slot-filling makes bloat *inherited*, not impossible: a bloated template bloats every model built from it, and nothing caps the number of templates, so proliferation becomes the new bloat vector.
+>
+> **The question was two questions.** For the **calculation engine** it is decided — generate from a closed block vocabulary, no hand-maintained `.xlsx` ([ADR-0003](../excel-library/docs/adr/0003-constrained-generation-over-xlsx-templates.md), amended). For the **presentation layer**, where the `Constraint` role and the screenshot criterion live, it is still open ([ADR-0005](../excel-library/docs/adr/0005-presentation-layer-structural-mechanism.md)).
 
 ## Non-goals, which belong in `BACKLOG.md`
 

@@ -31,8 +31,16 @@ exists to prevent.
 
 | Rule | Pick up when |
 |---|---|
-| `repeated-aggregate-in-run` — the same identical range aggregated on every row of a run, where a single shared scalar belongs | Every Phase 0 rule has caught a real bug, per GOAL's rule-addition policy. This is the strongest candidate to be first, since it targets the second fault in the reference failure directly. |
+| `inconsistent-column-semantics` — adjacent columns in one row presented as parallel while carrying different *kinds* of quantity, detected by comparing `Cell.number_format` and label applicability across the row's columns | **Now the strongest candidate, ahead of the two below.** Added 2026-09-21 from [EXPERIMENT_B.md](docs/EXPERIMENT_B.md), which is the "caught a real bug" evidence GOAL's rule-addition policy asks for: fixture B2b reproduces reference failure (b) in full and lints clean at exit 0, because XL003 discriminates on formula shape and the two columns normalise identically. The signal that would catch it is already in the IR — the right-hand column carries `0.0%` on a row labelled "Hours saved". Pick up once GOAL rule 1's off-sheet scope is settled, since both touch what a reader can conclude from one sheet. |
+| `repeated-aggregate-in-run` — the same identical range aggregated on every row of a run, where a single shared scalar belongs | Every Phase 0 rule has caught a real bug, per GOAL's rule-addition policy. |
 | `blanket-iferror` — `IFERROR` wrapping a whole expression instead of an explicit precondition test | As above, and additionally requires formula structure rather than token sequence, so it also triggers the ADR-0001 revisit. |
+
+A caution on the first row, recorded so it is not lost between sessions: XL003
+catches the version of this failure a human reviewer would also catch, and
+misses the version that survives review. Formula shape correlates inversely
+with how deceptive the rendering is. That is an argument for the new rule, and
+also a reason to expect the existing one's real-world hit rate to be lower than
+its fixture coverage suggests.
 
 ## Structural items deferred with reasons
 
