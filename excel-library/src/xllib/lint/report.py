@@ -74,7 +74,12 @@ class Report:
             item["confidence"] = finding.confidence.value
             findings.append(item)
         return {
-            "schema_version": "1.0",
+            # 1.1 added, all additively: `rules_disabled` in the summary, a
+            # `DISABLED` status in `rules`, `disabled_rules` in `config`, and a
+            # `kind` evidence key on XL004 and XL005. A consumer written
+            # against 1.0 still parses 1.1; one that switches on the `rules`
+            # status must handle DISABLED.
+            "schema_version": "1.1",
             "tool": {"name": "xllib", "version": __version__},
             "target": self.target,
             "config": self.config,

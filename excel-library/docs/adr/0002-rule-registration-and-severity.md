@@ -37,8 +37,15 @@ the byte-stability property the JSON output depends on.
 ### Capabilities and status
 
 `Capability` enumerates what a rule may need: `FORMULA_TOKENS`, `CACHED_VALUES`,
-`NUMBER_FORMATS`, `REF_GRAPH`, `STYLES`. The loader computes what the workbook in
-hand supplies. Each rule declares `requires`. The runner skips any rule whose
+`NUMBER_FORMATS`, `REF_GRAPH`. The loader computes what the workbook in
+hand supplies.
+
+*Corrected 2026-09-21: this list also named a `STYLES` capability, which was
+never implemented. `capability.py` has the four above and no more. XL104 reads
+styles through `Cell.has_font` and `Cell.has_fill` and declares `REF_GRAPH`, so
+nothing depended on the missing member — but a rule author reading this ADR
+would have declared a requirement that could never be satisfied, and the
+runner skips any rule whose requirements are unmet.* Each rule declares `requires`. The runner skips any rule whose
 requirements are unmet and records the reason.
 
 `Status` is `VIOLATION | SKIPPED | INFO`. There is no `PASS` status, and the

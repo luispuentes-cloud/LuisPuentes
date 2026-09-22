@@ -216,22 +216,38 @@ XL003 is only diagnosable if the report states which run it inferred.
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "tool": { "name": "xllib", "version": "0.1.0" },
   "target": {
     "path": "...", "sha256": "...", "loaded_at": "2026-09-16T18:55:00Z",
     "capabilities": ["FORMULA_TOKENS", "NUMBER_FORMATS", "REF_GRAPH"],
     "missing_capabilities": ["CACHED_VALUES"]
   },
-  "config": { "sources": ["builtin", "xllib.toml"], "thresholds": {} },
+  "config": {
+    "sources": ["builtin", "xllib.toml"], "thresholds": {},
+    "disabled_rules": ["XL101"]
+  },
   "summary": {
     "error": 3, "warn": 5, "skipped": 2,
-    "rules_total": 10, "rules_evaluated": 8, "exit_code": 1
+    "rules_total": 10, "rules_evaluated": 8, "rules_disabled": 1, "exit_code": 1
   },
-  "rules": [ { "id": "XL004", "status": "VIOLATION", "findings": 2 } ],
-  "findings": [ { "rule_id": "XL004", "...": "..." } ]
+  "rules": [
+    { "id": "XL004", "status": "VIOLATION", "findings": 2 },
+    { "id": "XL101", "status": "DISABLED", "findings": 0 }
+  ],
+  "findings": [
+    { "rule_id": "XL004", "evidence": { "kind": "error" }, "...": "..." }
+  ]
 }
 ```
+
+**Schema 1.1**, all changes additive. `rules_disabled` in the summary,
+`disabled_rules` in `config`, a `DISABLED` status in `rules`, and a `kind`
+evidence key on XL004 and XL005 separating a cached Excel error from ordinary
+text. A rule switched off by config **stays in `rules` and in `rules_total`**:
+dropping it shrank the denominator, so a config that disabled everything
+reported "0 of 0 rules evaluated" and exit 0 — absence of evidence rendered as
+a clean bill.
 
 Findings are sorted by `(rule_id, sheet_index, row, column)` with stable key
 order, and no timestamp appears inside `findings` — only in `target`. Two runs
