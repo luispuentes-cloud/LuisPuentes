@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import Any
 
 from .registry import registered_rules
-from .rule import Severity, Waiver
+from .rule import DEFAULT_ALLOWED_LITERALS, DEFAULT_POSITIONAL_EXEMPTIONS, Severity, Waiver
 
 CONFIG_FILENAME = "xllib.toml"
 
@@ -23,6 +23,9 @@ DEFAULT_THRESHOLDS = {
     "function_calls_per_cell": 2,
     "live_drivers": 6,
 }
+
+# Per-rule options that make a rule accept more than it otherwise would.
+WIDENING_OPTIONS = ("allowed_literals", "positional_exemptions")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,10 +52,12 @@ class Config:
                 {rule: MappingProxyType(dict(options)) for rule, options in self.rules.items()}
             ),
         )
-        # The gate lives here rather than in `load_config` because a gate a
+        # The gates live here rather than in `load_config` because a gate a
         # caller can walk around by constructing the object directly is not a
-        # gate. Every route to a Config now passes through it.
-        _reject_unwaived_silencing(self.rules, self.waivers)
+        # gate. Every route to a Config now passes through them.
+        authorised, refused = _waiver_index(self.waivers, date.today())
+        _reject_unwaived_silencing(self.rules, authorised, refused)
+        _reject_unwaived_loosening(self.thresholds, self.rules, authorised, refused)
 
     def options_for(self, rule_id: str) -> Mapping[str, Any]:
         return self.rules.get(rule_id, {})
@@ -206,8 +211,103 @@ def _waiver_defect(waiver: Waiver, today: date) -> str | None:
     return None
 
 
+def _waiver_index(
+    waivers: tuple[Waiver, ...], today: date
+) -> tuple[set[str], dict[str, str]]:
+    """Rule-wide waivers that authorise something, and the near misses that do not.
+
+    Shared by both gates below, so a waiver cannot qualify for one and be
+    refused by the other.
+    """
+    authorised: set[str] = set()
+    refused: dict[str, str] = {}
+    for waiver in waivers:
+        if waiver.scope != "*":
+            continue
+        defect = _waiver_defect(waiver, today)
+        if defect is None:
+            authorised.add(waiver.rule)
+        else:
+            refused.setdefault(waiver.rule, defect)
+    return authorised, refused
+
+
+def _refuse(act: str, key: str, refused: Mapping[str, str]) -> None:
+    message = f'{act} requires a waiver with a named approver and scope = "*"'
+    # Naming the near miss matters: "no waiver" and "the waiver you wrote
+    # lapsed last month" are different problems with the same old message.
+    defect = refused.get(key)
+    if defect is not None:
+        message = f"{message}; the waiver present does not qualify because {defect}"
+    raise ValueError(message)
+
+
+def _is_widening(option: str, value: Any) -> bool:
+    """Whether this option value makes the rule accept more than the default does."""
+    if option == "positional_exemptions":
+        try:
+            return any(
+                position not in DEFAULT_POSITIONAL_EXEMPTIONS.get(str(function), ())
+                for function, positions in value.items()
+                for position in positions
+            )
+        except (AttributeError, TypeError):
+            return True
+    try:
+        configured = {float(item) for item in value}
+    except (TypeError, ValueError):
+        # Unparseable is not demonstrably a narrowing, so it is gated rather
+        # than waved through. The rule itself will reject it on use.
+        return True
+    return not configured <= {float(item) for item in DEFAULT_ALLOWED_LITERALS}
+
+
+def _reject_unwaived_loosening(
+    thresholds: Mapping[str, int],
+    rules: Mapping[str, Mapping[str, Any]],
+    authorised: set[str],
+    refused: Mapping[str, str],
+) -> None:
+    """Raising a budget or widening a rule needs the same waiver silencing needs.
+
+    GOAL puts budgets under the same prohibition as waivers — "none silently
+    raisable by the agent" — but the gate below reads `severity` and nothing
+    else, so `[budgets]`, `allowed_literals` and `positional_exemptions` were
+    free dials: a config file could raise every threshold and exempt every
+    literal without naming an approver, which is the same route-around that
+    switching a rule off already required a waiver for. Closed 2026-09-22 by
+    operator decision.
+
+    **Only the loosening direction is gated.** Lowering a budget or shortening
+    `allowed_literals` makes the linter stricter, and a gate that fires on
+    tightening is one people learn to route around.
+
+    A budget is keyed by its own name rather than a rule id. The namespaces
+    cannot collide because rule ids are `XLnnn`, and reusing `Waiver` rather
+    than adding a second waiver shape keeps one validation path — which is
+    what `_waiver_defect` was consolidated for in the first place.
+    """
+    for key, value in thresholds.items():
+        default = DEFAULT_THRESHOLDS.get(key)
+        # An unrecognised budget key is a different defect, and a silent
+        # no-op rather than a loosening. Recorded in BACKLOG.md.
+        if default is None or value <= default:
+            continue
+        if key in authorised:
+            continue
+        _refuse(f"raising the {key} budget from {default} to {value}", key, refused)
+    for rule_id, options in rules.items():
+        if rule_id in authorised:
+            continue
+        for option in WIDENING_OPTIONS:
+            if option in options and _is_widening(option, options[option]):
+                _refuse(f"widening {rule_id} through {option}", rule_id, refused)
+
+
 def _reject_unwaived_silencing(
-    rules: Mapping[str, Mapping[str, Any]], waivers: tuple[Waiver, ...]
+    rules: Mapping[str, Mapping[str, Any]],
+    authorised: set[str],
+    refused: Mapping[str, str],
 ) -> None:
     """Silencing a rule needs a named approver whose waiver covers the whole rule.
 
@@ -225,20 +325,12 @@ def _reject_unwaived_silencing(
     4. Scope was then the *only* thing checked, so an expired waiver, or one
        with an empty approver, still authorised silence in memory. See
        `_waiver_defect`.
+
+    A fifth, of the same family, is `_reject_unwaived_loosening` above: this
+    gate reads `severity` alone, so every other dial in the file was free.
     """
     if not rules:
         return
-    today = date.today()
-    authorised: set[str] = set()
-    refused: dict[str, str] = {}
-    for waiver in waivers:
-        if waiver.scope != "*":
-            continue
-        defect = _waiver_defect(waiver, today)
-        if defect is None:
-            authorised.add(waiver.rule)
-        else:
-            refused.setdefault(waiver.rule, defect)
     defaults = {rule.id: rule.default_severity for rule in registered_rules()}
     for rule_id, options in rules.items():
         requested = str(options.get("severity", "")).lower()
@@ -247,10 +339,4 @@ def _reject_unwaived_silencing(
             continue
         if rule_id in authorised:
             continue
-        message = f'silencing {rule_id} requires a waiver with a named approver and scope = "*"'
-        # Naming the near miss matters: "no waiver" and "the waiver you wrote
-        # lapsed last month" are different problems with the same old message.
-        defect = refused.get(rule_id)
-        if defect is not None:
-            message = f"{message}; the waiver present does not qualify because {defect}"
-        raise ValueError(message)
+        _refuse(f"silencing {rule_id}", rule_id, refused)

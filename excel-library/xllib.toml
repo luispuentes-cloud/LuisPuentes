@@ -9,12 +9,10 @@ live_drivers = 6
 [rules.XL002]
 allowed_literals = [0, 1, -1, 12, 100]
 
-[rules.XL002.positional_exemptions]
-ROUND = [2]
-VLOOKUP = [3, 4]
-HLOOKUP = [3, 4]
-INDEX = [2, 3]
-OFFSET = [2, 3, 4, 5]
+# The ROUND / VLOOKUP / HLOOKUP / INDEX / OFFSET positional exemptions that
+# used to sit here are built into the rule as of 2026-09-22. They are a
+# property of Excel's function grammar rather than of this project, so they
+# need no waiver. Exempting a position beyond that set does need one.
 
 [waivers]
 entries = []

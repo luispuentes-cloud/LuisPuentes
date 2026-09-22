@@ -64,14 +64,13 @@ def test_xl001_unlabelled_named_constant(tmp_path: Path) -> None:
 
 
 def test_xl002_numeric_literal_with_positional_exemption(tmp_path: Path) -> None:
+    """ROUND's digit argument is a built-in exemption, so this restates the default."""
     book = Workbook()
     sheet = book.active
     sheet["A1"] = 10
     sheet["B1"] = "=A1*0.85"
     sheet["B2"] = "=ROUND(A1,2)"
-    config = Config(
-        rules={"XL002": {"positional_exemptions": {"ROUND": [2]}}},
-    )
+    config = Config(rules={"XL002": {"positional_exemptions": {"ROUND": [2]}}})
     path = _save(book, tmp_path / "xl002.xlsx")
     report = lint(load_workbook(path), config, _rule("XL002"))
     assert [item.evidence["literal"] for item in report.findings] == ["0.85"]

@@ -149,3 +149,109 @@ def test_a_valid_waiver_still_excuses_its_own_cell() -> None:
     config = Config(waivers=(_waiver(scope="Calc!D7"),))
     assert config.waiver_for("XL999", "Calc!D7") is not None
     assert config.waiver_for("XL999", "Calc!D8") is None
+
+
+# --- raising a budget ------------------------------------------------------
+#
+# The gate above reads `severity` and nothing else, so every other dial in the
+# file was free. GOAL says budgets are "none silently raisable by the agent";
+# closed 2026-09-22 by operator decision. Each refusal is paired with the
+# opposite direction, because a gate that fired on tightening too would pass
+# every refusal test here while making the linter unusable.
+
+
+def test_raising_a_budget_without_a_waiver_is_refused() -> None:
+    with pytest.raises(ValueError, match="raising the formula_depth budget from 4 to 12"):
+        Config(thresholds={**DEFAULT_THRESHOLDS, "formula_depth": 12})
+
+
+def test_lowering_a_budget_needs_no_waiver() -> None:
+    """The discriminating control: same key, opposite direction. Stricter is free."""
+    config = Config(thresholds={**DEFAULT_THRESHOLDS, "formula_depth": 2})
+    assert config.thresholds["formula_depth"] == 2
+
+
+def test_leaving_every_budget_at_its_default_needs_no_waiver() -> None:
+    assert Config().thresholds["formula_depth"] == DEFAULT_THRESHOLDS["formula_depth"]
+
+
+def test_a_budget_raise_is_authorised_by_a_waiver_naming_that_budget() -> None:
+    config = Config(
+        thresholds={"formula_depth": 12},
+        waivers=(_waiver(rule="formula_depth"),),
+    )
+    assert config.thresholds["formula_depth"] == 12
+
+
+def test_an_expired_waiver_does_not_authorise_a_budget_raise() -> None:
+    with pytest.raises(ValueError, match="does not qualify because it expired"):
+        Config(
+            thresholds={"formula_depth": 12},
+            waivers=(_waiver(rule="formula_depth", expires=_YESTERDAY),),
+        )
+
+
+def test_a_waiver_for_one_budget_does_not_authorise_another() -> None:
+    """Budgets are waived individually, exactly as rules are."""
+    with pytest.raises(ValueError, match="raising the live_drivers budget"):
+        Config(
+            thresholds={"live_drivers": 99},
+            waivers=(_waiver(rule="formula_depth"),),
+        )
+
+
+# --- widening a rule -------------------------------------------------------
+
+
+def test_widening_allowed_literals_without_a_waiver_is_refused() -> None:
+    with pytest.raises(ValueError, match="widening XL002 through allowed_literals"):
+        Config(rules={"XL002": {"allowed_literals": [0, 1, -1, 12, 100, 365]}})
+
+
+def test_narrowing_allowed_literals_needs_no_waiver() -> None:
+    """The discriminating control: a shorter list accepts less, so it is free."""
+    config = Config(rules={"XL002": {"allowed_literals": [0, 1]}})
+    assert config.options_for("XL002")["allowed_literals"] == [0, 1]
+
+
+def test_restating_the_default_allowed_literals_is_not_a_widening() -> None:
+    assert Config(rules={"XL002": {"allowed_literals": [0, 1, -1, 12, 100]}}).options_for("XL002")
+
+
+def test_exempting_a_new_function_is_a_widening() -> None:
+    with pytest.raises(ValueError, match="widening XL002 through positional_exemptions"):
+        Config(rules={"XL002": {"positional_exemptions": {"SUMIF": [2]}}})
+
+
+def test_exempting_a_further_position_of_a_known_function_is_a_widening() -> None:
+    """The subset test is per position, not per function name."""
+    with pytest.raises(ValueError, match="widening XL002 through positional_exemptions"):
+        Config(rules={"XL002": {"positional_exemptions": {"ROUND": [2, 3]}}})
+
+
+def test_restating_a_built_in_positional_exemption_is_not_a_widening() -> None:
+    """The discriminating control for the two above: same key, same shape, no refusal."""
+    config = Config(rules={"XL002": {"positional_exemptions": {"ROUND": [2]}}})
+    assert config.options_for("XL002")["positional_exemptions"] == {"ROUND": [2]}
+
+
+def test_an_empty_positional_exemption_map_is_not_a_widening() -> None:
+    assert Config(rules={"XL002": {"positional_exemptions": {}}}).options_for("XL002") is not None
+
+
+def test_a_waiver_authorising_silence_also_authorises_widening() -> None:
+    """Switching a rule off is strictly more permissive, so widening is a lesser act."""
+    config = Config(
+        rules={"XL002": {"positional_exemptions": {"SUMIF": [2]}}},
+        waivers=(_waiver(rule="XL002"),),
+    )
+    assert config.options_for("XL002")["positional_exemptions"] == {"SUMIF": [2]}
+
+
+def test_a_cell_scoped_waiver_does_not_authorise_widening() -> None:
+    """A `[rules]` option applies to every finding, so a cell scope cannot cover it."""
+    with pytest.raises(ValueError, match='scope = "\\*"'):
+        Config(
+            rules={"XL002": {"positional_exemptions": {"SUMIF": [2]}}},
+            waivers=(_waiver(rule="XL002", scope="Calc!D7"),),
+        )

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
+from types import MappingProxyType
 from typing import Any
 
 from xllib.inspect import Capability
@@ -64,6 +65,29 @@ class Finding:
     evidence: Mapping[str, str] = field(default_factory=dict)
     remediation: str = ""
     waiver: Waiver | None = None
+
+
+# These live here rather than beside XL002 because the waiver gate in
+# `config.py` compares configured values against them to tell a widening from a
+# narrowing, and `config -> registry -> rules` means config cannot import the
+# rule module.
+DEFAULT_ALLOWED_LITERALS: tuple[int, ...] = (0, 1, -1, 12, 100)
+
+# Argument positions where a numeric literal states *which* rather than *how
+# much* — a lookup column index, a rounding precision. These are a property of
+# Excel's function grammar, not of any one project, so they are built in rather
+# than configured. Exempting a position beyond this set is a widening and needs
+# a waiver. Moved out of the project's own `xllib.toml` on 2026-09-22 by
+# operator decision, when the new gate correctly refused it as unattributed.
+DEFAULT_POSITIONAL_EXEMPTIONS: Mapping[str, tuple[int, ...]] = MappingProxyType(
+    {
+        "ROUND": (2,),
+        "VLOOKUP": (3, 4),
+        "HLOOKUP": (3, 4),
+        "INDEX": (2, 3),
+        "OFFSET": (2, 3, 4, 5),
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from openpyxl.utils import get_column_letter
@@ -18,6 +18,8 @@ from xllib.inspect import (
 )
 
 from ..rule import (
+    DEFAULT_ALLOWED_LITERALS,
+    DEFAULT_POSITIONAL_EXEMPTIONS,
     Confidence,
     Finding,
     Locus,
@@ -128,9 +130,12 @@ def _xl001(workbook: Workbook, _: RuleContext) -> Iterable[Finding]:
 
 def _xl002(workbook: Workbook, context: RuleContext) -> Iterable[Finding]:
     allowed = {
-        float(value) for value in context.options.get("allowed_literals", [0, 1, -1, 12, 100])
+        float(value)
+        for value in context.options.get("allowed_literals", DEFAULT_ALLOWED_LITERALS)
     }
-    exemptions: dict[str, list[int]] = context.options.get("positional_exemptions", {})
+    exemptions: Mapping[str, Sequence[int]] = context.options.get(
+        "positional_exemptions", DEFAULT_POSITIONAL_EXEMPTIONS
+    )
     for sheet in workbook.sheets:
         for cell in sheet.cells:
             if cell.formula is None:
