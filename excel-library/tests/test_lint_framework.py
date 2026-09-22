@@ -15,7 +15,23 @@ from xllib.lint.rule import (
     Rule,
     Severity,
     Status,
+    Waiver,
 )
+
+
+def _waiver(rule: str = "XL999", scope: str = "*") -> Waiver:
+    return Waiver(
+        rule=rule,
+        scope=scope,
+        reason="test",
+        approver="owner",
+        expires="2099-01-01",
+    )
+
+
+def _disabled_config(rule: str = "XL999") -> Config:
+    """A rule switched off the only way the gate permits: with a rule-wide waiver."""
+    return Config(rules={rule: {"severity": "off"}}, waivers=(_waiver(rule),))
 
 
 @dataclass
@@ -120,7 +136,7 @@ severity = "off"
 
 
 def test_disabled_rule_is_named_in_the_report() -> None:
-    config = Config(rules={"XL999": {"severity": "off"}})
+    config = _disabled_config()
     report = lint(StubWorkbook(), config, (_rule(),))
     assert report.rule_ids == ()
     assert report.as_dict()["config"]["disabled_rules"] == ["XL999"]
@@ -129,7 +145,7 @@ def test_disabled_rule_is_named_in_the_report() -> None:
 
 def test_a_disabled_rule_still_counts_against_the_total() -> None:
     """Shrinking the denominator turns "nothing was checked" into a clean bill."""
-    config = Config(rules={"XL999": {"severity": "off"}})
+    config = _disabled_config()
     summary = lint(StubWorkbook(), config, (_rule(),)).as_dict()["summary"]
     assert summary["rules_total"] == 1
     assert summary["rules_evaluated"] == 0
@@ -138,9 +154,54 @@ def test_a_disabled_rule_still_counts_against_the_total() -> None:
 
 
 def test_a_disabled_rule_is_listed_rather_than_omitted() -> None:
-    config = Config(rules={"XL999": {"severity": "off"}})
+    config = _disabled_config()
     rules = lint(StubWorkbook(), config, (_rule(),)).as_dict()["rules"]
     assert rules == [{"id": "XL999", "status": "DISABLED", "findings": 0}]
+
+
+def test_constructing_a_config_directly_cannot_bypass_the_gate() -> None:
+    """The gate used to live only in `load_config`.
+
+    Every test above that disables a rule went straight past it by building the
+    object, which is also all a caller has to do.
+    """
+    with pytest.raises(ValueError, match="requires a waiver"):
+        Config(rules={"XL999": {"severity": "off"}})
+
+
+def test_a_cell_scoped_waiver_does_not_authorise_a_rule_wide_silence() -> None:
+    """`[rules]` is rule-wide, so authorising it needs a rule-wide waiver.
+
+    A waiver reading `scope = "Calc!D7"` says one cell is excused. Accepting it
+    as grounds to switch the rule off everywhere grants far more than the
+    approver signed for.
+    """
+    with pytest.raises(ValueError, match='scope = "\\*"'):
+        Config(
+            rules={"XL999": {"severity": "off"}},
+            waivers=(_waiver(scope="Calc!D7"),),
+        )
+
+
+def test_a_cell_scoped_waiver_still_excuses_its_own_cell() -> None:
+    """The narrowing must not break what scoped waivers are for."""
+    config = Config(waivers=(_waiver(scope="Calc!D7"),))
+    assert config.waiver_for("XL999", "Calc!D7") is not None
+    assert config.waiver_for("XL999", "Calc!D8") is None
+
+
+def test_a_misspelled_rule_id_is_rejected(tmp_path: Path) -> None:
+    """`XL0O2` is a letter O. It used to be accepted and then do nothing."""
+    path = tmp_path / "xllib.toml"
+    path.write_text('[rules.XL0O2]\nseverity = "warn"\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="unknown rule id"):
+        load_config(path)
+
+
+def test_a_correctly_spelled_rule_id_is_still_accepted(tmp_path: Path) -> None:
+    path = tmp_path / "xllib.toml"
+    path.write_text('[rules.XL101]\nseverity = "error"\n', encoding="utf-8")
+    assert load_config(path).severity_for("XL101", Severity.WARN) == Severity.ERROR
 
 
 def test_raising_a_severity_needs_no_waiver(tmp_path: Path) -> None:
@@ -190,7 +251,38 @@ def test_config_discovery_walks_up_from_a_subdirectory(tmp_path: Path) -> None:
 
 
 def test_config_discovery_returns_none_when_there_is_no_project(tmp_path: Path) -> None:
+    """Bounded deliberately.
+
+    This used to walk all the way to the filesystem root and pass only because
+    no `xllib.toml` happened to sit there — a green test that depended on the
+    machine it ran on. The `.git` marker makes the stopping point the test's
+    own, so it asserts the boundary rather than the absence of a stray file.
+    """
+    (tmp_path / ".git").mkdir()
     assert discover_config(tmp_path) is None
+
+
+def test_config_above_the_project_boundary_is_not_adopted(tmp_path: Path) -> None:
+    """A stray `xllib.toml` in a home directory must not govern every run.
+
+    Silencing a rule needs a waiver with a named approver. A config file one
+    level above the project would reach the same outcome with neither, and
+    nothing in the report would look unusual.
+    """
+    (tmp_path / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 1\n", encoding="utf-8")
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".git").mkdir()
+    assert discover_config(project) is None
+
+
+def test_config_inside_the_project_is_still_found(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    (project / "models" / "fy26").mkdir(parents=True)
+    (project / ".git").mkdir()
+    (project / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 3\n", encoding="utf-8")
+    found = discover_config(project / "models" / "fy26")
+    assert found == (project / "xllib.toml").resolve()
 
 
 def test_waived_error_may_be_turned_off(tmp_path: Path) -> None:
