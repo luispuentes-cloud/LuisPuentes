@@ -68,7 +68,10 @@ def lint(workbook: Any, config: Config, rules: tuple[Rule, ...]) -> Report:
         target=target,
         config={
             "sources": list(config.sources),
-            "thresholds": config.thresholds,
+            # `config.thresholds` is a read-only view, which `json.dumps`
+            # cannot serialise. Convert at the boundary rather than leaving the
+            # mapping mutable for the report's convenience.
+            "thresholds": dict(config.thresholds),
             "disabled_rules": list(disabled),
         },
         rule_ids=tuple(rule.id for rule in active),

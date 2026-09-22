@@ -52,3 +52,19 @@ its fixture coverage suggests.
 | Budget threshold calibration | `--measure` has been run across the existing workbook corpus. Every budget default is currently a guess; the distribution converts six guesses into six measurements for the cost of one output mode. |
 | Version control for this repo | Monorepo at orchestrator root with lane worktrees (2026-09-17). Remaining: named remote, then the first Linux CI run on that remote. Do not invent a GitHub repo. |
 | Disposition of `xldump.py` and `xlbuild.py` | Closed for `xldump.py`: leave it alone (Q6). Add a one-line pointer once Phase 0 ships. `xlbuild.py` stays fenced with the Framework lane until that pointer lands. |
+
+## Silencing-gate review (2026-09-22)
+
+Independent adversary pass on HEAD `d004b10` (`config.py` not dirty). Constructor, `dataclasses.replace`, `scope="*"` per-rule, unknown-id in `load_config`, and worktree `.git`-as-file discovery **hold**.
+
+**Closed, do not reopen:** put `_reject_unknown_rule_ids` in `Config.__post_init__`. **No.** `lint()` takes an arbitrary `rules` tuple; unknown-id is a file/CLI check. Doing it in `__post_init__` would block programmatic custom rules and would not close the misspelling hole twice.
+
+| Hole | Severity | Pick up when |
+|---|---|---|
+| `config.rules` is a mutable dict; post-init mutation (and `copy.copy`) silences without a waiver | High | Before declaring Phase 0 shipped — GOAL's "agent never grants a waiver" is otherwise a constructor-only check |
+| `config.thresholds` is a mutable dict of the same shape, so a budget can be raised post-construction with no waiver and no trace. **Not flagged by the adversary pass — found in-lane 2026-09-22 while fixing the row above.** GOAL's budgets are "none silently raisable by the agent." Note `report.py` serialises `config.thresholds` directly, so freezing it needs a `dict()` at the report boundary | High | With the row above — same mechanism, same `__post_init__` |
+| Expired `scope="*"` waiver still authorises silence on direct `Config`; file path rejects it | High | Same gate as shipping decision 2 (free dials / waiver honesty). CI-on-file is not the in-memory contract |
+| Empty `approver`/`reason` still satisfy the in-memory gate; error text claims otherwise | Med | Same pass as expired-waiver |
+| Walk will load `~/xllib.toml` if no `.git` sits above the start dir (home is inclusive, contra the stray-home comment) | Med | Raised as [ADR-0007](docs/adr/0007-config-discovery-anchor.md), Proposed — it closes with the anchor decision, since the two share a root cause |
+| `object.__new__` / `object.__setattr__` skip the gate | Low | Never, unless someone starts constructing Config that way in production |
+| Unknown ids on direct `Config` (misspell as `warn` is a silent no-op) | Low | Closed as a `__post_init__` change; leave as file/CLI only |
