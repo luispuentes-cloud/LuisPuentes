@@ -100,6 +100,21 @@ def _defined_names(formula_book: Any) -> tuple[DefinedName, ...]:
     return tuple(names)
 
 
+def assert_readable(path: str | Path) -> None:
+    """Raise if openpyxl cannot read this file, without parsing the whole thing.
+
+    Callers that recalculate need this *before* handing the path on. The recalc
+    chain copies the target and offers it to backends ending in Excel COM, so
+    an unsupported or corrupt file otherwise gets launched in Excel — which
+    took the process down with an access violation rather than returning a
+    diagnosable exit code.
+
+    `read_only=True` runs openpyxl's own extension and archive validation and
+    stops short of reading cells, so a valid workbook is not parsed twice.
+    """
+    openpyxl_load_workbook(Path(path), read_only=True).close()
+
+
 def load_workbook(path: str | Path, *, keep_links: bool = True) -> Workbook:
     """Load formulas and cached results, preserving every worksheet state."""
     source = Path(path)

@@ -1,7 +1,7 @@
 """Public read-only Excel inspection API."""
 
 from .capability import Capability, capabilities
-from .load import load_workbook
+from .load import assert_readable, load_workbook
 from .model import Cell, DefinedName, Reference, Sheet, Workbook
 from .refs import AggregateRange, RefEdge, RefGraph, build_reference_graph
 from .spans import (
@@ -35,6 +35,7 @@ __all__ = [
     "Sheet",
     "TokenWalk",
     "Workbook",
+    "assert_readable",
     "build_reference_graph",
     "capabilities",
     "detect_period_axes",

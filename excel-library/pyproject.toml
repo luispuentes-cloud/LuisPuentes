@@ -55,6 +55,7 @@ module = [
   "formulas.*",
   "openpyxl.formula.tokenizer",
   "openpyxl.utils.datetime",
+  "openpyxl.utils.exceptions",
   "win32com.*",
   "pythoncom",
   "uno",
