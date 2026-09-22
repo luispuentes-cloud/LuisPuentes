@@ -1,8 +1,11 @@
 # Experiment B — do the two reference failures have a spatial component?
 
-- **Status:** Pre-registered. No fixture has been built and no result exists.
-- **Registered:** 2026-09-21, Excel Library lane, before the builder script was written.
+- **Status:** Run 2026-09-21. Result recorded below against the rule registered before it.
+- **Registered:** 2026-09-21 at commit `b357334`, before the builder script was written.
 - **Decides:** one input to the ADR-0003 amendment. Not the amendment itself.
+- **Outcome:** ADR-0003's argument 1 is unsound as stated — but the experiment
+  does not license the conclusion that templates are the remedy. See
+  [Three things found that were not registered](#three-things-found-that-were-not-registered).
 
 ## Why this exists
 
@@ -154,5 +157,132 @@ workbook is never a source of truth.
 
 ## Results
 
-Not yet run. Filled in below after the builder and the linter have both been
-executed, in the same commit as the raw JSON reports.
+Run 2026-09-21, Excel COM authoring against desktop Excel, linted with the
+committed project config in force (`builtin` + `excel-library/xllib.toml`).
+
+| Fixture | Exit | Errors | Warns | Findings | Names its reference failure? |
+|---|---|---|---|---|---|
+| B1 — off-sheet driver, no named range | 0 | 0 | 1 | XL006 INFO, XL102 WARN | **No** |
+| B2a — different shapes (control) | 1 | 1 | 1 | **XL003 on `Benefits!B7:C7`**, XL006 INFO, XL102 WARN | **Yes** |
+| B2b — same shape, different mechanics | 0 | 0 | 1 | XL006 INFO, XL102 WARN | **No** |
+
+All three reported `10 of 10 rules evaluated`. Nothing was skipped, so the COM
+authoring delivered the cached values the `CACHED_VALUES` rules need and no
+rule was silently inert. Both incidental findings were predicted above before
+the run; no unpredicted finding appeared, so no fixture is invalid.
+
+Verbatim, with the worktree path abbreviated:
+
+````
+=== b1_offsheet_driver_no_named_range ===
+Workbook                 ~ XL006  no period axis detected; inconsistent-period-axis was not evaluated
+Workbook                 XL102  no chk_* defined name found
+
+10 of 10 rules evaluated   0 error   1 warn
+config: builtin, <worktree>\excel-library\xllib.toml
+exit 0
+
+=== b2a_adjacent_columns_different_shapes ===
+Benefits!B7:C7           ~ XL003  2 formula shapes in inferred run B7:C7
+Workbook                 ~ XL006  no period axis detected; inconsistent-period-axis was not evaluated
+Workbook                 XL102  no chk_* defined name found
+
+10 of 10 rules evaluated   1 error   1 warn
+config: builtin, <worktree>\excel-library\xllib.toml
+exit 1
+
+=== b2b_adjacent_columns_same_shape ===
+Workbook                 ~ XL006  no period axis detected; inconsistent-period-axis was not evaluated
+Workbook                 XL102  no chk_* defined name found
+
+10 of 10 rules evaluated   0 error   1 warn
+config: builtin, <worktree>\excel-library\xllib.toml
+exit 0
+````
+
+The pre-registration promised the raw JSON in this commit. It is **not**
+committed, and the reason is the standing one: the reports embed absolute
+paths carrying the operator's username and this repository is public. They are
+at `%TEMP%\xllib_experiment_b\*.report.json` and regenerate from the builder.
+The text above is the same content minus the paths.
+
+### The reader-harm half
+
+The renders are committed in `experiment-b/` because the registered rule turns
+on a judgement about what a reader sees, and that judgement should not rest on
+the word of the agent that wants a particular answer.
+
+**B1 `Summary`** — the whole sheet is two cells: a label and `$6,630`. There is
+no driver, no formula, no cross-reference, and no indication that a `Drivers`
+tab exists. A reader cannot answer "how was this number produced?", cannot
+discover what would change it, and has nothing on the sheet to follow. The harm
+of reference failure (a) is reproduced in full, and there is no named range
+anywhere in the workbook.
+
+**B2b `Benefits`** — under the parallel headers "Automation" and "Vendor
+consolidation", the sheet reads:
+
+| | Automation | Vendor consolidation |
+|---|---|---|
+| Hours saved | 1,200 | 8.5% |
+| Blended rate | $45 | $640,000 |
+| Annual benefit | $54,000 | $54,400 |
+
+The right-hand column's labels are simply false: 8.5% is not a count of hours
+and $640,000 is not a rate. The two bottom lines land four-tenths of a percent
+apart, which is exactly what invites a reader to treat them as comparable. The
+harm of reference failure (b) is reproduced in full, and the linter reports
+nothing.
+
+### Outcome against the registered decision rule
+
+**Row 1.** The control fired, both test fixtures passed clean, and the reader
+harm is reproduced in both. **ADR-0003's argument 1 is wrong as stated.** Both
+reference failures survive a lint-clean workbook, and failure (b) survives
+specifically because the harm lives in column adjacency and header parallelism,
+which no rule reads.
+
+### Three things found that were not registered
+
+Recorded because they change the amendment, and the third cuts against the
+conclusion above.
+
+**1. The linter catches the visible failure and misses the deceptive one.**
+Compare the two renders. B2a, which XL003 catches, is the version a human
+reviewer would also catch: it has a visible "Uplift factor 12%" row that only
+one column uses, and bottom lines that differ by a factor of eight. B2b, which
+nothing catches, is the one that survives review — parallel labels, plausible
+numbers, bottom lines four-tenths of a percent apart. XL003's discriminator is
+formula shape, and formula shape turns out to correlate *inversely* with how
+deceptive the rendering is. The rule is most alert where it is least needed.
+
+**2. Number format is an unread signal that is already in the IR.** In B2b the
+right-hand column carries `0.0%` on the row labelled "Hours saved" and
+`$#,##0` on the row labelled "Blended rate". A human spots it immediately.
+Nothing compares number formats across adjacent columns in the same row, even
+though `Cell.number_format` is already loaded for every cell.
+
+**3. This qualifies the conclusion, and the qualification matters.** Finding 2
+means failure (b) is reachable by a *cell-level* rule — compare number formats
+and label applicability across the columns of a row — and such a rule is lint,
+not a template. So the honest reading is narrower than "templates are needed":
+
+> The reference failures have a spatial component that the current rule set
+> does not read. It does not follow that only a layout mechanism can read it.
+
+ADR-0003's argument 1 is wrong because it claims the failures are *purely*
+formula-level and semantic. The correct claim is that they are formula-level
+**and spatial**, that the spatial half is currently unimplemented, and that the
+spatial half is addressable either by a new lint rule or by a layout mechanism.
+This experiment discriminates between "argument 1 is sound" and "argument 1 is
+unsound." It does **not** discriminate between "add a rule" and "adopt
+templates," and the amendment must not pretend it does.
+
+### Fixture-construction note
+
+B1 honours "no named range anywhere" literally, which guarantees the XL102
+warning, because the only sanctioned check convention is a `chk_*` defined
+name. This is a property of the fixture, not a contradiction in GOAL: rule 1
+bans an off-sheet named range *acting as a scenario driver*, not named ranges
+as such. Adding a check block would have removed the warning without touching
+the result.
