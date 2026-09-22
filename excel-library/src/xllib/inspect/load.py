@@ -124,6 +124,31 @@ def assert_readable(path: str | Path) -> None:
         raise ValueError(f"not a workbook: {source}") from exc
 
 
+def _stored_cells(sheet: Any) -> list[Any]:
+    """The cells the file actually stores, in row-major order.
+
+    `iter_rows()` walks the *declared* rectangle and creates a cell object for
+    every empty coordinate inside it. One stray value in the far corner of a
+    sheet therefore costs the whole rectangle rather than the content: measured
+    on openpyxl 3.1, a value at row 2000 column 200 turned 2 real cells into
+    400,000 materialised ones in 0.8s. The regression fixture is a decade
+    larger at 20,000 by 500, and took 364 seconds to read before this change
+    against under a second after it. A full sheet exhausts memory rather than
+    finishing. Phase 0 promises to run on an arbitrary `.xlsx`, and a
+    far-corner cell is a common file shape rather than a contrived one.
+
+    Every coordinate that walk invented was then discarded by the empty-and-
+    unstyled test below, so reading openpyxl's own mapping of the cells that
+    exist returns the same set for a cost set by the content. `_cells` is
+    private, hence the fallback; `tests/test_inspect_load.py` pins the two
+    routes to the same result.
+    """
+    stored: dict[tuple[int, int], Any] | None = getattr(sheet, "_cells", None)
+    if stored is None:  # pragma: no cover - openpyxl always defines it today
+        return [cell for row in sheet.iter_rows() for cell in row]
+    return [stored[key] for key in sorted(stored)]
+
+
 def load_workbook(path: str | Path, *, keep_links: bool = True) -> Workbook:
     """Load formulas and cached results, preserving every worksheet state."""
     source = Path(path)
@@ -138,42 +163,41 @@ def load_workbook(path: str | Path, *, keep_links: bool = True) -> Workbook:
         for index, formula_sheet in enumerate(formula_book.worksheets):
             value_sheet = value_book[formula_sheet.title]
             cells: list[Cell] = []
-            for row in formula_sheet.iter_rows():
-                for source_cell in row:
-                    cached_cell = value_sheet[source_cell.coordinate]
-                    has_font = _has_font(source_cell)
-                    has_fill = _has_fill(source_cell)
-                    if (
-                        source_cell.value is None
-                        and cached_cell.value is None
-                        and not source_cell.has_style
-                        and not has_font
-                        and not has_fill
-                    ):
-                        continue
-                    formula = (
-                        source_cell.value
-                        if source_cell.data_type == "f" and isinstance(source_cell.value, str)
-                        else None
+            for source_cell in _stored_cells(formula_sheet):
+                cached_cell = value_sheet[source_cell.coordinate]
+                has_font = _has_font(source_cell)
+                has_fill = _has_fill(source_cell)
+                if (
+                    source_cell.value is None
+                    and cached_cell.value is None
+                    and not source_cell.has_style
+                    and not has_font
+                    and not has_fill
+                ):
+                    continue
+                formula = (
+                    source_cell.value
+                    if source_cell.data_type == "f" and isinstance(source_cell.value, str)
+                    else None
+                )
+                cells.append(
+                    Cell(
+                        sheet=formula_sheet.title,
+                        row=source_cell.row,
+                        column=source_cell.column,
+                        coordinate=source_cell.coordinate,
+                        value=None if formula is not None else source_cell.value,
+                        formula=formula,
+                        cached_value=(
+                            cached_cell.value if formula is not None else source_cell.value
+                        ),
+                        data_type=source_cell.data_type,
+                        number_format=source_cell.number_format,
+                        has_style=source_cell.has_style,
+                        has_font=has_font,
+                        has_fill=has_fill,
                     )
-                    cells.append(
-                        Cell(
-                            sheet=formula_sheet.title,
-                            row=source_cell.row,
-                            column=source_cell.column,
-                            coordinate=source_cell.coordinate,
-                            value=None if formula is not None else source_cell.value,
-                            formula=formula,
-                            cached_value=(
-                                cached_cell.value if formula is not None else source_cell.value
-                            ),
-                            data_type=source_cell.data_type,
-                            number_format=source_cell.number_format,
-                            has_style=source_cell.has_style,
-                            has_font=has_font,
-                            has_fill=has_fill,
-                        )
-                    )
+                )
             sheets.append(
                 Sheet.create(
                     name=formula_sheet.title,

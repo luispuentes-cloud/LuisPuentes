@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from openpyxl import Workbook as OpenpyxlWorkbook
+from openpyxl import load_workbook as openpyxl_load_workbook
 from openpyxl.workbook.defined_name import DefinedName
 
-from xllib.inspect import Capability, capabilities, load_workbook
+from xllib.inspect import (
+    Capability,
+    capabilities,
+    detect_period_axis,
+    estimate_section_count,
+    infer_formula_runs,
+    load_workbook,
+)
 
 _MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
@@ -91,3 +100,64 @@ def test_missing_formula_cache_is_not_claimed(tmp_path: Path) -> None:
     inspected = load_workbook(path)
 
     assert Capability.CACHED_VALUES not in capabilities(inspected)
+
+
+def test_a_far_corner_cell_does_not_cost_the_whole_rectangle(tmp_path: Path) -> None:
+    """Two real cells used to cost ten million coordinates, twice over.
+
+    `iter_rows()` walks the declared rectangle and creates a cell object for
+    every coordinate inside it, and the span heuristics then walked the same
+    rectangle again looking for content. A single stray value in the far
+    corner of a sheet is a common file shape, and Phase 0 promises to run on
+    an arbitrary `.xlsx`.
+
+    The bound is deliberately loose. What is asserted is the difference
+    between a cost set by the content and one set by the declared dimension,
+    not a benchmark. Measured on this fixture: 364s before the fix, and under
+    a second after it.
+    """
+    path = tmp_path / "far-corner.xlsx"
+    book = OpenpyxlWorkbook()
+    sheet = book.active
+    sheet.title = "Sparse"
+    sheet["A1"] = 1
+    sheet.cell(row=20000, column=500, value=2)
+    book.save(path)
+
+    started = time.perf_counter()
+    sparse = load_workbook(path).sheet("Sparse")
+    assert sparse is not None
+    detect_period_axis(sparse)
+    infer_formula_runs(sparse)
+    sections = estimate_section_count(sparse)
+    elapsed = time.perf_counter() - started
+
+    assert len(sparse.cells) == 2
+    assert sparse.populated_rows == (1, 20000)
+    assert sections == 2
+    assert elapsed < 10
+
+
+def test_the_loader_reads_the_same_cells_a_rectangle_walk_would(tmp_path: Path) -> None:
+    """`_stored_cells` reads a private openpyxl attribute, so pin it to the API.
+
+    The control for the test above: making the read cheap is only a fix if it
+    also reads the same thing.
+    """
+    path = tmp_path / "dense.xlsx"
+    book = OpenpyxlWorkbook()
+    sheet = book.active
+    sheet.title = "Dense"
+    sheet["A1"] = "label"
+    sheet["B1"] = 2
+    sheet["D2"] = "=B1*2"
+    sheet["A4"] = 0
+    book.save(path)
+
+    loaded = load_workbook(path).sheet("Dense")
+    assert loaded is not None
+    walked = openpyxl_load_workbook(path)["Dense"]
+
+    assert {cell.coordinate for cell in loaded.cells} == {
+        cell.coordinate for row in walked.iter_rows() for cell in row if cell.value is not None
+    }

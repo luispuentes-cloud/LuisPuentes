@@ -53,7 +53,7 @@ def _period_label(cell: Cell) -> str | None:
 def detect_period_axes(sheet: Sheet, *, minimum_periods: int = 2) -> tuple[PeriodAxis, ...]:
     """Detect contiguous horizontal runs of date-like period labels."""
     axes: list[PeriodAxis] = []
-    for row_number in range(1, sheet.max_row + 1):
+    for row_number in sheet.populated_rows:
         run: list[tuple[Cell, str]] = []
         for column_number in range(1, sheet.max_column + 2):
             cell = sheet.cell(row_number, column_number)
@@ -92,7 +92,7 @@ def detect_period_axis(sheet: Sheet, *, minimum_periods: int = 2) -> PeriodAxis 
 def infer_formula_runs(sheet: Sheet, *, minimum_cells: int = 2) -> tuple[FormulaRun, ...]:
     """Infer contiguous horizontal formula runs and record normalized shapes."""
     runs: list[FormulaRun] = []
-    for row_number in range(1, sheet.max_row + 1):
+    for row_number in sheet.populated_rows:
         run: list[Cell] = []
         for column_number in range(1, sheet.max_column + 2):
             cell = sheet.cell(row_number, column_number)
@@ -120,17 +120,23 @@ def infer_formula_runs(sheet: Sheet, *, minimum_cells: int = 2) -> tuple[Formula
 
 
 def estimate_section_count(sheet: Sheet) -> int:
-    """Estimate sections as non-empty row groups separated by blank rows."""
-    occupied_rows = {
-        cell.row
-        for cell in sheet.cells
-        if cell.formula is not None or cell.effective_value is not None
-    }
+    """Estimate sections as non-empty row groups separated by blank rows.
+
+    Counting the gaps between occupied rows rather than walking every row to
+    `max_row` gives the same answer at a cost set by the content instead of by
+    the sheet's declared height.
+    """
+    occupied_rows = sorted(
+        {
+            cell.row
+            for cell in sheet.cells
+            if cell.formula is not None or cell.effective_value is not None
+        }
+    )
     sections = 0
-    previous_occupied = False
-    for row_number in range(1, sheet.max_row + 1):
-        occupied = row_number in occupied_rows
-        if occupied and not previous_occupied:
+    previous_row: int | None = None
+    for row_number in occupied_rows:
+        if previous_row is None or row_number != previous_row + 1:
             sections += 1
-        previous_occupied = occupied
+        previous_row = row_number
     return sections

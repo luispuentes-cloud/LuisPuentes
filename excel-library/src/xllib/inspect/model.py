@@ -95,9 +95,21 @@ class Sheet:
     max_column: int
     cells: tuple[Cell, ...]
     _by_position: Mapping[tuple[int, int], Cell]
+    _populated_rows: tuple[int, ...]
 
     def cell(self, row: int, column: int) -> Cell | None:
         return self._by_position.get((row, column))
+
+    @property
+    def populated_rows(self) -> tuple[int, ...]:
+        """Ascending row numbers that hold a retained cell.
+
+        `max_row` is the sheet's declared height, and one stray value in the
+        far corner makes that the full 1,048,576 rows while the file holds two
+        cells. A scan looking for content should ask for the rows that have
+        some; an empty row cannot contribute to a run or a section either way.
+        """
+        return self._populated_rows
 
     @classmethod
     def create(
@@ -111,7 +123,8 @@ class Sheet:
         cells: tuple[Cell, ...],
     ) -> Sheet:
         positions = MappingProxyType({(cell.row, cell.column): cell for cell in cells})
-        return cls(name, index, state, max_row, max_column, cells, positions)
+        rows = tuple(sorted({cell.row for cell in cells}))
+        return cls(name, index, state, max_row, max_column, cells, positions, rows)
 
 
 @dataclass(frozen=True, slots=True)
