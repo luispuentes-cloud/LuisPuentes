@@ -242,6 +242,10 @@ def test_text_report_states_which_config_was_in_force() -> None:
 
 
 def test_config_discovery_walks_up_from_a_subdirectory(tmp_path: Path) -> None:
+    """Plant a project boundary. Without it this would keep walking past
+    `tmp_path` and pass or fail based on whatever `xllib.toml` the machine
+    happens to have above pytest's temp dir."""
+    (tmp_path / ".git").mkdir()
     (tmp_path / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 3\n", encoding="utf-8")
     nested = tmp_path / "models" / "fy26"
     nested.mkdir(parents=True)
@@ -282,6 +286,30 @@ def test_config_inside_the_project_is_still_found(tmp_path: Path) -> None:
     (project / ".git").mkdir()
     (project / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 3\n", encoding="utf-8")
     found = discover_config(project / "models" / "fy26")
+    assert found == (project / "xllib.toml").resolve()
+
+
+def test_config_discovery_stops_at_a_git_file_the_way_a_worktree_does(
+    tmp_path: Path,
+) -> None:
+    """A linked worktree has `.git` as a file, not a directory.
+
+    `Path.exists()` accepts both; `is_dir()` would not, and this lane's own
+    checkout is a worktree. A config above that file must not leak in.
+    """
+    (tmp_path / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 1\n", encoding="utf-8")
+    project = tmp_path / "worktree"
+    project.mkdir()
+    (project / ".git").write_text("gitdir: /tmp/fake.git\n", encoding="utf-8")
+    assert discover_config(project) is None
+
+
+def test_config_inside_a_worktree_is_still_found(tmp_path: Path) -> None:
+    project = tmp_path / "worktree"
+    (project / "models").mkdir(parents=True)
+    (project / ".git").write_text("gitdir: /tmp/fake.git\n", encoding="utf-8")
+    (project / "xllib.toml").write_text("[budgets]\nsheets_per_workbook = 3\n", encoding="utf-8")
+    found = discover_config(project / "models")
     assert found == (project / "xllib.toml").resolve()
 
 

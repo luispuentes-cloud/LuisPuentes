@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -77,6 +78,30 @@ def test_a_legacy_xls_returns_three(tmp_path: Path) -> None:
     with an unreadable file, and it should say so rather than crash.
     """
     path = tmp_path / "legacy.xls"
+    path.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(64))
+    assert main(["lint", str(path)]) == 3
+
+
+def test_a_zip_that_is_not_a_workbook_returns_three(tmp_path: Path) -> None:
+    """A valid zip named `.xlsx` is not the same as a workbook.
+
+    Corrupt-zip coverage used a truncated archive (`BadZipFile`). This is the
+    other common encounter: a well-formed zip that is not Office Open XML.
+    """
+    path = tmp_path / "not-a-workbook.xlsx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("readme.txt", "not an office document")
+    assert main(["lint", str(path)]) == 3
+
+
+def test_a_password_protected_file_returns_three(tmp_path: Path) -> None:
+    """Encrypted `.xlsx` is an OLE compound file, not a zip.
+
+    Excel's password-protected OOXML wrapper uses the same CFB signature as a
+    legacy `.xls`. Named separately so a later reader does not treat the
+    `.xls` case as the only OLE path that matters.
+    """
+    path = tmp_path / "encrypted.xlsx"
     path.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(64))
     assert main(["lint", str(path)]) == 3
 

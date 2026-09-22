@@ -111,8 +111,17 @@ def assert_readable(path: str | Path) -> None:
 
     `read_only=True` runs openpyxl's own extension and archive validation and
     stops short of reading cells, so a valid workbook is not parsed twice.
+
+    A well-formed zip that is not OOXML raises `KeyError` for
+    `[Content_Types].xml`. That is not an `OSError`, not a `BadZipFile`, and
+    not `InvalidFileException`, so leaving it uncaught sent the user a
+    traceback at exit 1 rather than exit 3.
     """
-    openpyxl_load_workbook(Path(path), read_only=True).close()
+    source = Path(path)
+    try:
+        openpyxl_load_workbook(source, read_only=True).close()
+    except KeyError as exc:
+        raise ValueError(f"not a workbook: {source}") from exc
 
 
 def load_workbook(path: str | Path, *, keep_links: bool = True) -> Workbook:
