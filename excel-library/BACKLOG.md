@@ -79,6 +79,20 @@ boundary and the `--measure` counts are all genuinely bitten. Two gaps:
 
 Independent adversary pass on HEAD `d004b10` (`config.py` not dirty). Constructor, `dataclasses.replace`, `scope="*"` per-rule, unknown-id in `load_config`, and worktree `.git`-as-file discovery **hold**.
 
+**Provenance caveat — these findings were recovered, not reported.** The brief
+that produced them stalled without returning: twice, in fact, once in the
+session that first launched it and again on relaunch, which errored with
+"repeated resume attempts made no progress". It plainly ran — it left a probe
+file behind and wrote this section directly — and five of its six required
+deliverables are present below. The **model line and the verdict one-liner are
+not**, so completeness is unconfirmed and no model attribution is possible.
+Treat the holes listed here as a genuine independent pass, but not as an
+exhaustive one; an absent finding is not evidence of an absent hole.
+**Do not relaunch that brief as written.** Two stalls on one prompt is a fact
+about the prompt, not the runner — it asked for adversarial reasoning plus
+probes across four claims in one turn on a machine where every shell call
+costs 40–90s. Split it, or run it in-lane.
+
 **Closed, do not reopen:** put `_reject_unknown_rule_ids` in `Config.__post_init__`. **No.** `lint()` takes an arbitrary `rules` tuple; unknown-id is a file/CLI check. Doing it in `__post_init__` would block programmatic custom rules and would not close the misspelling hole twice.
 
 | Hole | Severity | Pick up when |
