@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from openpyxl import Workbook
 
+from xllib import cli
 from xllib.cli import main
 
 
@@ -69,6 +70,34 @@ def test_a_corrupt_zip_returns_three(tmp_path: Path) -> None:
     path = tmp_path / "corrupt.xlsx"
     path.write_bytes(b"PK\x03\x04 truncated, not a workbook")
     assert main(["lint", str(path)]) == 3
+
+
+def test_an_unreadable_file_is_refused_before_recalculation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exit 3 on its own does not prove the guard ran.
+
+    An independent bite-test on 2026-09-22 reverted the `assert_readable` call
+    and both exit-3 tests still passed: the file reached the recalc chain and
+    came back as exit 3 from the `UNREADABLE` handler seventy seconds later.
+    The exit code is identical either way, so it cannot distinguish them. What
+    the guard exists to prevent is handing an unreadable file to backends
+    ending in Excel COM, which ended the process with an access violation —
+    so the thing to assert is that recalculation is never reached at all.
+    """
+    reached = False
+
+    def _never_recalculate(*_: object, **__: object) -> object:
+        nonlocal reached
+        reached = True
+        raise AssertionError("recalculate was reached for a file openpyxl cannot read")
+
+    monkeypatch.setattr(cli, "recalculate", _never_recalculate)
+    path = tmp_path / "corrupt.xlsx"
+    path.write_bytes(b"PK\x03\x04 truncated, not a workbook")
+
+    assert main(["lint", str(path)]) == 3
+    assert not reached
 
 
 def test_a_legacy_xls_returns_three(tmp_path: Path) -> None:

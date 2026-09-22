@@ -53,6 +53,17 @@ its fixture coverage suggests.
 | Version control for this repo | Monorepo at orchestrator root with lane worktrees (2026-09-17). Remaining: named remote, then the first Linux CI run on that remote. Do not invent a GitHub repo. |
 | Disposition of `xldump.py` and `xlbuild.py` | Closed for `xldump.py`: leave it alone (Q6). Add a one-line pointer once Phase 0 ships. `xlbuild.py` stays fenced with the Framework lane until that pointer lands. |
 
+## Test-bite review (2026-09-22)
+
+Independent revert-and-restore pass on `3f20930` and `8976088`. Verdict
+**PARTIAL**. The silencing gate, unknown-rule rejection, the `.git` discovery
+boundary and the `--measure` counts are all genuinely bitten. Two gaps:
+
+| Gap | Status |
+|---|---|
+| `assert_readable` before recalc was **not** bitten — reverting it left both exit-3 tests passing, because the file reached the recalc chain and returned 3 from the `UNREADABLE` handler ~70s later. The exit code cannot distinguish the two paths | **Closed 2026-09-22.** `test_an_unreadable_file_is_refused_before_recalculation` asserts `recalculate` is never reached |
+| The **home-directory** stop in `discover_config` has no dedicated test; only the parent-`.git` case is covered | **Left open deliberately.** [ADR-0007](docs/adr/0007-config-discovery-anchor.md) recommends changing this behaviour, and pinning it with a test now would fix the thing under review. The test lands with the ADR's resolution |
+
 ## Silencing-gate review (2026-09-22)
 
 Independent adversary pass on HEAD `d004b10` (`config.py` not dirty). Constructor, `dataclasses.replace`, `scope="*"` per-rule, unknown-id in `load_config`, and worktree `.git`-as-file discovery **hold**.
