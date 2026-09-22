@@ -235,6 +235,19 @@ Formula parser or evaluator (use `formulas`) · wrapping the full openpyxl API �
 >
 > Rules 2, 3, 4 and 8 are unaffected and ship at `ERROR` as written.
 
+> **Phase 0 declared shipped 2026-09-22, at `1a00f35`, against the amended definition above and not the original.** Scored clause by clause rather than asserted:
+>
+> | Clause | Evidence |
+> |---|---|
+> | Runs on an arbitrary `.xlsx` | `src/xllib/cli.py`, exercised by `tests/test_cli.py` |
+> | Reports all eight rules | `lint/rules/__init__.py` — XL001–XL006 at ERROR, XL101–XL104 at WARN. Met **as amended**; rule 1 is the XL001 proxy and rules 5–7 are WARN |
+> | A failing fixture per rule | `tests/test_complete_sets.py` — ten mutations, each asserting an *exact* finding set against a shared clean baseline that asserts zero, so none can pass vacuously |
+> | Runs in CI on Linux | [Run 35790357844](https://github.com/luispuentes-cloud/LuisPuentes/actions/runs/35790357844) — `ubuntu-latest`, Python 3.12 and 3.14, `ruff` then strict `mypy` then the full 171-test suite, all green |
+>
+> The fourth clause is why this declaration waited. Every one of Phase 0's hardening commits sat unpushed on `lane/excel-library`, so the branch had never been through CI and the clause was satisfied only in the sense that the workflow *could* have run. The line above requires the acceptance test to **pass** in CI, and a green local run on Windows — on a machine whose Excel COM had degraded that session — is not that. The branch was pushed and the run observed before this line was written.
+>
+> **Not claimed:** budget calibration (still guesses, pending an approved corpus), XL006's semantics matching GOAL rule 8 in full, and ADR-0005/0006/0007, which remain Proposed. None of those is a Phase 0 clause.
+
 
 
 **Phase 1:** a hand-written value-case spec with a baseline, two scenarios and three periods compiles to `.xlsx`, recalculates headless in CI with no Excel, passes declared assertions and checks, **passes Phase 0 lint clean**, renders a presentation sheet readable as a standalone screenshot, and produces a readable diff against a modified spec. Every budget breach and every lint violation fails the build with a named error.

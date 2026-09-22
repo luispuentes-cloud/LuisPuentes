@@ -4,27 +4,42 @@ A library for generating and checking consulting workbooks, where the properties
 that make a workbook auditable are enforced as executable checks rather than
 documented conventions.
 
-**Current state: Phase 0 linter is implemented and gated in CI.** Inspection,
-automatic recalculation, ten rules, the CLI, and reports run here. pytest
-**155 passed, 1 skipped**; Ruff and strict mypy are clean. Live Excel COM
-recalc is verified on this machine, and Linux CI runs green on 3.12 and 3.14.
+**Current state: Phase 0 is shipped, declared 2026-09-22 at `1a00f35`.**
+Inspection, automatic recalculation, ten rules, the CLI, and reports run here.
+171 tests; Ruff and strict mypy clean. Linux CI is green on both 3.12 and
+3.14 ([run 35790357844][ci]) — that run, not a local one, is what closed the
+last criterion. Live Excel COM recalc is verified on the author's machine but
+is not part of the CI contract; on Linux the pure-Python `formulas` backend
+does the work.
 
-**Phase 0 is still not shipped**, but no longer for the reason this file used
-to give. The old text said "nothing is under version control, so the Linux CI
-workflow has never run"; both halves are now false. Nothing in the code blocks
-it either — the three independent review briefs are collected and their
-findings closed. What remains is three operator decisions: GOAL rule 1 is
-implemented only as the XL001 proxy and the clean baseline still violates the
-full rule; rule strictness is adjustable through `allowed_literals`,
-`positional_exemptions` and `[budgets]` with no waiver; and ADR-0003's amended
-text has not been accepted.
+All four clauses of GOAL's Phase 0 definition of done are met, the fourth one
+**as amended 2026-09-22** rather than as originally written — read that
+amendment before citing "reports all eight rules." Rule 1 ships as the XL001
+proxy, because "no off-sheet named range acts as a scenario driver" is a
+semantic role that is undecidable from a file; the full check becomes a
+generation-time one in Phase 1. Rules 5, 6 and 7 ship at `WARN`, because
+Phase 0 has no declaration to read and blocking a build on a heuristic is how
+a linter gets routed around.
 
-ADRs 0001, 0002 and 0004 are Accepted. **ADR-0003 was amended on 2026-09-21**
-and narrowed to the calculation engine; the presentation layer moved to
-**ADR-0005**, which is deliberately undecided. **ADR-0006** (whether an
-unhandled cached error belongs in a rule 4 rule) and **ADR-0007** (whether
-config discovery anchors on the working directory or the workbook) opened on
-2026-09-22. All four are Proposed.
+The three operator decisions this file used to list as outstanding are all
+answered and built: the loosening gate now covers `[budgets]`,
+`allowed_literals` and `positional_exemptions`; the Phase 0 definition of done
+records the rule 1 split; and ADR-0003 is Accepted with its untested
+"templates address neither" clause struck.
+
+[ci]: https://github.com/luispuentes-cloud/LuisPuentes/actions/runs/35790357844
+
+ADRs 0001, 0002 and 0004 are Accepted. **ADR-0003 was accepted 2026-09-22**,
+narrowed to the calculation engine, with the "templates address neither"
+clause struck and three of its supporting arguments carried as explicitly
+open — accepting a decision whose arguments are partly unresolved was
+deliberate, and the alternative was holding Phase 0 on a Phase 1 question.
+The presentation layer moved to **ADR-0005**, which is deliberately
+undecided. **ADR-0006** (whether an unhandled cached error belongs in a
+rule 4 rule) and **ADR-0007** (whether config discovery anchors on the
+working directory or the workbook) opened on 2026-09-22. Those three are
+Proposed; none of them gated shipping, though ADR-0007 changes resolution
+for every existing invocation and is cheaper to settle before Phase 1.
 
 ## What it does now
 
@@ -83,7 +98,7 @@ recalc backend fails, not when a file merely lacks cached values.
 | `docs/PHASE0_FIXTURES.md` | One fixture per rule; built, not merely described |
 | `docs/EXPERIMENT_B.md` | Pre-registered test of whether the two reference failures survive a lint-clean workbook. They do. Evidence behind the ADR-0003 amendment |
 | `BACKLOG.md` | Deferred work, each with a pickup trigger |
-| `docs/adr/` | 0001, 0002, 0004 Accepted; 0003 amended, 0005, 0006 and 0007 open, all Proposed |
+| `docs/adr/` | 0001, 0002, 0003, 0004 Accepted; 0005, 0006 and 0007 open, all Proposed |
 | `docs/rules/` | One page per Phase 0 rule |
 | `experiments/` | Scripts needing desktop Excel. Never collected by pytest and never run in CI |
 
