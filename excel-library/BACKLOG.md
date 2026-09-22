@@ -53,6 +53,17 @@ its fixture coverage suggests.
 | Version control for this repo | Monorepo at orchestrator root with lane worktrees (2026-09-17). Remaining: named remote, then the first Linux CI run on that remote. Do not invent a GitHub repo. |
 | Disposition of `xldump.py` and `xlbuild.py` | Closed for `xldump.py`: leave it alone (Q6). Add a one-line pointer once Phase 0 ships. `xlbuild.py` stays fenced with the Framework lane until that pointer lands. |
 
+## Residuals from the loosening gate (2026-09-22)
+
+Found in-lane while building `_reject_unwaived_loosening`, and deliberately
+kept out of that diff. Both are real; neither is what the operator approved,
+and GOAL caps the diff per increment.
+
+| Residual | Pick up when |
+|---|---|
+| An **unrecognised budget key** in `xllib.toml` is a silent no-op. `load_config` does `thresholds.update(...)` with whatever keys the file holds, so `formula_dept = 99` sets a key nothing reads and the operator believes a budget was raised. This is the identical defect `_reject_unknown_rule_ids` exists to reject for rule ids, and the same argument applies: a config that silently does not do what it says is worse than one that is rejected. Fails safe (strict), which is why it is not urgent | Next time `config.py` is opened. The fix mirrors `_reject_unknown_rule_ids` — file-only, in `load_config`, not in `__post_init__`, because `Rule.thresholds` lets a rule legitimately declare a key that is not a built-in budget |
+| **`Rule.thresholds` bypasses the gate.** `api.py` builds `RuleContext` as `{**config.thresholds, **rule.thresholds}`, after `Config.__post_init__` has run, so a rule declaring its own threshold overrides a gated budget with no waiver. All ten rules currently pass `{}`, so nothing exploits it today | When any rule first declares a non-empty `thresholds`. Editing rule *code* is a larger trust boundary than editing a TOML, so this is a lower-severity hole than the config one it mirrors — but it is the same hole |
+
 ## Test-bite review (2026-09-22)
 
 Independent revert-and-restore pass on `3f20930` and `8976088`. Verdict

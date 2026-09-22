@@ -227,6 +227,16 @@ Formula parser or evaluator (use `formulas`) · wrapping the full openpyxl API �
 
 **Phase 0:** the linter runs on an arbitrary `.xlsx`, reports all eight rules, passes a failing fixture per rule, and runs in CI on Linux.
 
+> **Amended 2026-09-22 by operator decision.** "Reports all eight rules" was written before anyone had checked which of the eight a *file* can actually answer, and three of them cannot be answered from one without a spec. Recording that here rather than quietly shipping against a definition of done that is not met.
+>
+> **Rule 1 ships as a proxy.** "No off-sheet named range acts as a scenario driver" is undecidable from a workbook: "scenario driver" is a semantic role that exists in the author's head and in the spec, never in the file. XL001 implements the decidable part — a defined name resolving to a single numeric constant, referenced by a formula, with no text label immediately left or above. The full rule becomes a **generation-time check in Phase 1**, where the spec makes it true by construction rather than detectable after the fact. The reasoning is worked through in `excel-library/docs/PHASE0_CHALLENGE.md`.
+>
+> **Rules 5, 6 and 7 ship at `WARN`, not `ERROR`.** Block structure, check blocks and redundant cell-type signalling are all declared properties, and Phase 0 has no declaration to read, so XL101, XL102, XL103 and XL104 detect them heuristically. Blocking a build on a heuristic is how a linter gets routed around. They graduate to `ERROR` in Phase 1 for generated workbooks, where the spec declares what Phase 0 can only infer.
+>
+> Rules 2, 3, 4 and 8 are unaffected and ship at `ERROR` as written.
+
+
+
 **Phase 1:** a hand-written value-case spec with a baseline, two scenarios and three periods compiles to `.xlsx`, recalculates headless in CI with no Excel, passes declared assertions and checks, **passes Phase 0 lint clean**, renders a presentation sheet readable as a standalone screenshot, and produces a readable diff against a modified spec. Every budget breach and every lint violation fails the build with a named error.
 
 **Phase 2:** the eight questions produce a valid spec, and identical answers produce byte-identical specs.

@@ -1,8 +1,18 @@
 # ADR-0003 — Constrained generation for the calculation engine, not `.xlsx` slot-filling
 
-- **Status:** Amended 2026-09-21. Still Proposed — the amended text has not been accepted.
-- **Date:** 2026-09-16 · **Amended:** 2026-09-21
-- **Deciders:** Project Owner. Amendment scope directed 2026-09-21; acceptance of the amended text is outstanding.
+- **Status:** **Accepted 2026-09-22**, with the "templates address neither" clause struck and arguments 2, 3 and the two unadjudicated points below carried as explicitly open.
+- **Date:** 2026-09-16 · **Amended:** 2026-09-21 · **Accepted:** 2026-09-22
+- **Deciders:** Project Owner. Amendment scope directed 2026-09-21; accepted 2026-09-22.
+
+> **What acceptance does and does not settle.** It settles the decision: the
+> calculation engine generates from a closed block vocabulary, and no
+> hand-maintained `.xlsx` is the source of shape. It does **not** ratify the
+> whole rationale. Arguments 2 and 3 are scored Open in the challenge table
+> below and stay open; the `GOAL.md` "structurally impossible" overstatement
+> and the process finding about this ADR's authorship are recorded there
+> unadjudicated and stay that way. Accepting a decision whose supporting
+> arguments are partly unresolved is a deliberate choice, not an oversight —
+> the alternative was to keep Phase 0 blocked on a Phase 1 question.
 - **Scope:** the **calculation engine only**. The presentation layer is [ADR-0005](0005-presentation-layer-structural-mechanism.md), deliberately undecided.
 - **Context:** Kickoff deliverable 3; GOAL.md "Open question — decide this first"
 
@@ -71,11 +81,19 @@ generated blocks get arranged on a sheet is a preset for now, pending ADR-0005.
 
 ## Rationale
 
-**The reference failures are formula-level *and* spatial. Templates address
-neither, and neither does the current rule set.** *(Replaces the original
-argument 1, which claimed the failures were purely formula-level and semantic.
-That claim was tested and is false — see [EXPERIMENT_B.md](../EXPERIMENT_B.md),
-pre-registered at `b357334` and run the same day.)*
+**The reference failures are formula-level *and* spatial, and the current rule
+set addresses neither.** *(Replaces the original argument 1, which claimed the
+failures were purely formula-level and semantic. That claim was tested and is
+false — see [EXPERIMENT_B.md](../EXPERIMENT_B.md), pre-registered at `b357334`
+and run the same day.)*
+
+> **"Templates address neither" struck 2026-09-22 on acceptance.** The restored
+> line claimed templates fail here too. Experiment B tested the *linter* against
+> two hand-built workbooks; it never built a template and never showed one
+> failing, so that half of the sentence asserted more than the evidence
+> reaches. What survives is the tested half: both reference failures survive a
+> lint-clean workbook. Whether a template would catch them is untested, and is
+> the live question in ADR-0005 rather than a settled point here.
 
 Two workbooks were hand-built in Excel and linted. One put a driver block on a
 `Drivers` tab feeding a `Summary` headline by plain cell reference, with no
