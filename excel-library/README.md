@@ -6,19 +6,25 @@ documented conventions.
 
 **Current state: Phase 0 linter is implemented and gated in CI.** Inspection,
 automatic recalculation, ten rules, the CLI, and reports run here. pytest
-**132 passed, 1 skipped**; Ruff and strict mypy are clean. Live Excel COM
+**155 passed, 1 skipped**; Ruff and strict mypy are clean. Live Excel COM
 recalc is verified on this machine, and Linux CI runs green on 3.12 and 3.14.
 
 **Phase 0 is still not shipped**, but no longer for the reason this file used
 to give. The old text said "nothing is under version control, so the Linux CI
-workflow has never run"; both halves are now false. What remains open is two
-operator decisions — GOAL rule 1 is not implemented and the clean baseline
-violates it, and rule strictness is still adjustable through
-`allowed_literals`, `positional_exemptions` and `[budgets]` with no waiver.
+workflow has never run"; both halves are now false. Nothing in the code blocks
+it either — the three independent review briefs are collected and their
+findings closed. What remains is three operator decisions: GOAL rule 1 is
+implemented only as the XL001 proxy and the clean baseline still violates the
+full rule; rule strictness is adjustable through `allowed_literals`,
+`positional_exemptions` and `[budgets]` with no waiver; and ADR-0003's amended
+text has not been accepted.
 
 ADRs 0001, 0002 and 0004 are Accepted. **ADR-0003 was amended on 2026-09-21**
 and narrowed to the calculation engine; the presentation layer moved to
-**ADR-0005**, which is deliberately undecided. Both are Proposed.
+**ADR-0005**, which is deliberately undecided. **ADR-0006** (whether an
+unhandled cached error belongs in a rule 4 rule) and **ADR-0007** (whether
+config discovery anchors on the working directory or the workbook) opened on
+2026-09-22. All four are Proposed.
 
 ## What it does now
 
@@ -77,7 +83,7 @@ recalc backend fails, not when a file merely lacks cached values.
 | `docs/PHASE0_FIXTURES.md` | One fixture per rule; built, not merely described |
 | `docs/EXPERIMENT_B.md` | Pre-registered test of whether the two reference failures survive a lint-clean workbook. They do. Evidence behind the ADR-0003 amendment |
 | `BACKLOG.md` | Deferred work, each with a pickup trigger |
-| `docs/adr/` | 0001, 0002, 0004 Accepted; 0003 amended and 0005 open, both Proposed |
+| `docs/adr/` | 0001, 0002, 0004 Accepted; 0003 amended, 0005, 0006 and 0007 open, all Proposed |
 | `docs/rules/` | One page per Phase 0 rule |
 | `experiments/` | Scripts needing desktop Excel. Never collected by pytest and never run in CI |
 
