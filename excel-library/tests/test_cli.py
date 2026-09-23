@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -133,6 +136,40 @@ def test_a_password_protected_file_returns_three(tmp_path: Path) -> None:
     path = tmp_path / "encrypted.xlsx"
     path.write_bytes(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + bytes(64))
     assert main(["lint", str(path)]) == 3
+
+
+def test_the_module_entry_point_reaches_the_cli(tmp_path: Path) -> None:
+    """`python -m xllib` is what the skills tell a consultant to run.
+
+    Calling `main()` directly cannot prove it: the package resolved and the
+    CLI worked long before `__main__.py` existed, and `python -m xllib` still
+    failed with "is a package and cannot be directly executed". Only a
+    subprocess exercises the entry point. `--measure` is used so the check
+    costs no recalculation.
+
+    `PYTHONPATH` carries this tree's `src` for the same reason `conftest.py`
+    prepends it in-process: a bare subprocess resolves `xllib` from whatever
+    is pip-installed, which on this machine is a different checkout entirely.
+    Without it the test reports on that checkout rather than on this one.
+    """
+    path = tmp_path / "entry.xlsx"
+    book = Workbook()
+    sheet = book.active
+    sheet["A1"] = 10
+    sheet["B1"] = "=A1*0.85"
+    book.save(path)
+
+    src = Path(__file__).resolve().parents[1] / "src"
+    completed = subprocess.run(
+        [sys.executable, "-m", "xllib", "lint", str(path), "--measure"],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "PYTHONPATH": str(src)},
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["formula_cells"] == 1
 
 
 def test_lint_recalculates_and_emits_json(

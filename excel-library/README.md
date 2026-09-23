@@ -67,10 +67,17 @@ mypy
 Lint a workbook:
 
 ```powershell
-xllib lint path\to\book.xlsx
-xllib lint path\to\book.xlsx --json
-xllib lint path\to\book.xlsx --measure
+py -3 -m xllib lint path\to\book.xlsx
+py -3 -m xllib lint path\to\book.xlsx --json
+py -3 -m xllib lint path\to\book.xlsx --measure
 ```
+
+The `xllib` console script also exists, but it is installed into the
+interpreter's `Scripts` directory, which is not on `PATH` everywhere — on the
+author's machine `xllib lint` reports "not recognized" while the package
+imports cleanly. `python -m xllib` is the invocation to document and to give
+anyone else, because it depends only on the interpreter that resolves the
+package.
 
 `--measure` emits metrics only (no pass or fail). Budget calibration still
 needs an approved real-workbook corpus; synthetic fixtures are not that corpus.
